@@ -69,7 +69,7 @@ while [ "${CHOICE}" != "0" ]; do
         if [ ! -f "/usr/bin/git" ]; then
             apt install git -y
         fi
-        UPDATE_LINK="http://scripts.hostvn.net/ubuntu/update"
+        UPDATE_LINK="https://f97.github.io/hostvn/update"
         NGINX_NEW_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_new_version=" | cut -f2 -d'=')
         NGINX_CURRENT_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
         if [[ -n "$NGINX_NEW_VERSION" && "$NGINX_NEW_VERSION" != "$NGINX_CURRENT_VERSION" ]]; then
@@ -97,12 +97,12 @@ while [ "${CHOICE}" != "0" ]; do
             [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
             wget -O- "${psol_url}" | tar -xz
             cd "${MODULE_PATH}" || exit
-            wget -O- http://nginx.org/download/nginx-"${NGINX_NEW_VERSION}".tar.gz | tar -xz
-            wget -O- http://scripts.hostvn.net/ubuntu/modules/ngx_cache_purge-"${ngx_cache_purge_version}".tar.gz | tar -xz
-            wget -O- http://scripts.hostvn.net/ubuntu/modules/openssl-OpenSSL_"${openssl_version}".tar.gz | tar -xz
-            wget -O- http://scripts.hostvn.net/ubuntu/modules/pcre-"${pcre_version}".tar.gz | tar -xz
-            wget -O- http://scripts.hostvn.net/ubuntu/modules/zlib-"${zlib_version}".tar.gz | tar -xz
-            wget -O- http://scripts.hostvn.net/ubuntu/modules/headers-more-nginx-module-"${more_clear_headers_v}".tar.gz | tar -xz
+            wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
+            wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
+            wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
+            wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
+            wget -O- https://www.zlib.net/fossils/zlib-"${zlib_version}".tar.gz | tar -xz
+            wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
             wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
             git clone --depth 1 https://github.com/google/ngx_brotli
             cd ngx_brotli || exit
@@ -160,7 +160,7 @@ while [ "${CHOICE}" != "0" ]; do
         if [ ! -f "/usr/bin/git" ]; then
             apt install git -y
         fi
-        UPDATE_LINK="http://scripts.hostvn.net/ubuntu/update"
+        UPDATE_LINK="https://f97.github.io/hostvn/update"
         NGINX_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
         MODULE_PATH="/usr/share/nginx_module"
         mkdir -p "${MODULE_PATH}"
@@ -186,12 +186,12 @@ while [ "${CHOICE}" != "0" ]; do
         [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
         wget -O- "${psol_url}" | tar -xz
         cd "${MODULE_PATH}" || exit
-        wget -O- http://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
-        wget -O- http://scripts.hostvn.net/ubuntu/modules/ngx_cache_purge-"${ngx_cache_purge_version}".tar.gz | tar -xz
-        wget -O- http://scripts.hostvn.net/ubuntu/modules/openssl-OpenSSL_"${openssl_version}".tar.gz | tar -xz
-        wget -O- http://scripts.hostvn.net/ubuntu/modules/pcre-"${pcre_version}".tar.gz | tar -xz
-        wget -O- http://scripts.hostvn.net/ubuntu/modules/zlib-"${zlib_version}".tar.gz | tar -xz
-        wget -O- http://scripts.hostvn.net/ubuntu/modules/headers-more-nginx-module-"${more_clear_headers_v}".tar.gz | tar -xz
+        wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
+        wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
+        wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
+        wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
+        wget -O- https://www.zlib.net/fossils/zlib-"${zlib_version}".tar.gz | tar -xz
+        wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
         wget -O- https://github.com/leev/ngx_http_geoip2_module/archive/refs/tags/3.3.tar.gz | tar -xz
         wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
         git clone --depth 1 https://github.com/google/ngx_brotli
@@ -299,7 +299,7 @@ http {
     limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=1r/s;
 
     # Custom Response Headers
-    more_set_headers 'Server: HOSTVN.NET';
+    more_set_headers 'Server: GITHUB.COM';
     more_set_headers 'X-Content-Type-Options    "nosniff" always';
     more_set_headers 'X-XSS-Protection          "1; mode=block" always';
     more_set_headers 'Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always';

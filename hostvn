@@ -1102,7 +1102,7 @@ http {
     limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=1r/s;
 
     # Custom Response Headers
-    more_set_headers 'Server: GITHUB.IO';
+    more_set_headers 'Server: GITHUB.COM';
     more_set_headers 'X-Content-Type-Options    "nosniff" always';
     more_set_headers 'X-XSS-Protection          "1; mode=block" always';
     more_set_headers 'Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always';
