@@ -97,7 +97,7 @@ while [ "${CHOICE}" != "0" ]; do
             [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
             wget -O- "${psol_url}" | tar -xz
             cd "${MODULE_PATH}" || exit
-            wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
+            wget -O- https://nginx.org/download/nginx-"${NGINX_NEW_VERSION}".tar.gz | tar -xz
             wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
             wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
             wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
