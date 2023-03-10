@@ -17,7 +17,7 @@ rm -rf ubuntu
 DIR=$(pwd)
 
 # Set link
-SCRIPT_LINK="https://scripts.hostvn.net/ubuntu"
+SCRIPT_LINK="https://f97.github.io/hostvn"
 
 welcome(){
     clear

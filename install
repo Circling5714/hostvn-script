@@ -10,7 +10,6 @@
 #  Please do not copy under any circumstance for commercial reason!  #
 ######################################################################
 
-rm -rf install
 apt update -y
 apt upgrade -y
 apt autoremove -y
@@ -24,7 +23,7 @@ OS=$(grep -w "ID" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
 if [[ "${OS}" == "debian" ]]; then
     OS="ubuntu"
 fi
-SCRIPT_LINK="http://scripts.hostvn.net/${OS}"
+SCRIPT_LINK="https://f97.github.io/hostvn/"
 OS_LIST="centos ubuntu debian"
 RAM_TOTAL=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 LOW_RAM='400000'

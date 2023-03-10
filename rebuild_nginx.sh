@@ -12,7 +12,7 @@
 
 apt-get install build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev -y
 
-UPDATE_LINK="https://scripts.hostvn.net/ubuntu/update"
+UPDATE_LINK="https://f97.github.io/hostvn/update"
 MODULE_PATH="/usr/share/nginx_module"
 mkdir -p "${MODULE_PATH}"
 NGINX_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')

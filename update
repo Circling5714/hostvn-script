@@ -1,0 +1,1159 @@
+#!/bin/bash
+
+printf "%s\n" "Dang update vui long doi...."
+script_version="0.2.9"
+IPADDRESS=$(grep -w "IPADDRESS" "/var/hostvn/ipaddress" | cut -f2 -d'=')
+RAM_TOTAL=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+
+php1_version=$(grep -w "php1_version" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+php2_version=$(grep -w "php2_version" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+
+mariadb_calculation() {
+    if [[ ${RAM_TOTAL} -gt 400000 && ${RAM_TOTAL} -le 2099152 ]]; then #1GB Ram
+        max_allowed_packet="32M"
+        back_log="100"
+        max_connections="150"
+        key_buffer_size="32M"
+        myisam_sort_buffer_size="32M"
+        myisam_max_sort_file_size="2048M"
+        innodb_log_buffer_size="8M"
+        join_buffer_size="64K"
+        read_buffer_size="64K"
+        sort_buffer_size="128K"
+        table_definition_cache="4096"
+        table_open_cache="2048"
+        thread_cache_size="64"
+        tmp_table_size="32M"
+        max_heap_table_size="32M"
+        query_cache_limit="512K"
+        query_cache_size="16M"
+        innodb_open_files="2000"
+        innodb_buffer_pool_size="48M"
+        innodb_io_capacity="100"
+        aria_pagecache_buffer_size="8M"
+        aria_sort_buffer_size="8M"
+        net_buffer_length="8192"
+        read_rnd_buffer_size="256K"
+        innodb_log_file_size="128M"
+        innodb_read_io_threads="2"
+        aria_log_file_size="32M"
+        key_buffer="32M "
+        sort_buffer="16M"
+        read_buffer="16M"
+        write_buffer="16M"
+    fi
+
+    if [[ ${RAM_TOTAL} -gt 2099152 && ${RAM_TOTAL} -le 4198304 ]]; then #2GB Ram
+        max_allowed_packet="48M"
+        back_log="200"
+        max_connections="200"
+        key_buffer_size="32M"
+        myisam_sort_buffer_size="64M"
+        myisam_max_sort_file_size="2048M"
+        innodb_log_buffer_size="8M"
+        join_buffer_size="128K"
+        read_buffer_size="128K"
+        sort_buffer_size="256K"
+        table_definition_cache="8192"
+        table_open_cache="4096"
+        thread_cache_size="128"
+        tmp_table_size="128M"
+        max_heap_table_size="128M"
+        query_cache_limit="1024K"
+        query_cache_size="64M"
+        innodb_open_files="4000"
+        innodb_buffer_pool_size="192M"
+        innodb_io_capacity="200"
+        aria_pagecache_buffer_size="32M"
+        aria_sort_buffer_size="32M"
+        net_buffer_length="8192"
+        read_rnd_buffer_size="256K"
+        innodb_log_file_size="128M"
+        innodb_read_io_threads="2"
+        aria_log_file_size="32M"
+        key_buffer="32M "
+        sort_buffer="16M"
+        read_buffer="16M"
+        write_buffer="16M"
+    fi
+
+    if [[ ${RAM_TOTAL} -gt 4198304 && ${RAM_TOTAL} -le 8396608 ]]; then #4GB Ram
+        max_allowed_packet="64M"
+        back_log="200"
+        max_connections="350"
+        key_buffer_size="256M"
+        myisam_sort_buffer_size="256M"
+        myisam_max_sort_file_size="2048M"
+        innodb_log_buffer_size="8M"
+        join_buffer_size="256K"
+        read_buffer_size="256K"
+        sort_buffer_size="256K"
+        table_definition_cache="8192"
+        table_open_cache="4096"
+        thread_cache_size="256"
+        tmp_table_size="256M"
+        max_heap_table_size="256M"
+        query_cache_limit="1024K"
+        query_cache_size="80M"
+        innodb_open_files="4000"
+        innodb_buffer_pool_size="512M"
+        innodb_io_capacity="300"
+        aria_pagecache_buffer_size="64M"
+        aria_sort_buffer_size="64M"
+        net_buffer_length="16384"
+        read_rnd_buffer_size="512K"
+        innodb_log_file_size="256M"
+        innodb_read_io_threads="4"
+        aria_log_file_size="64M"
+        key_buffer="256M "
+        sort_buffer="32M"
+        read_buffer="32M"
+        write_buffer="32M"
+    fi
+
+    if [[ ${RAM_TOTAL} -gt 8396608 && ${RAM_TOTAL} -le 16793216 ]]; then #8GB Ram
+        max_allowed_packet="64M"
+        back_log="512"
+        max_connections="400"
+        key_buffer_size="384M"
+        myisam_sort_buffer_size="256M"
+        myisam_max_sort_file_size="2048M"
+        innodb_log_buffer_size="16M"
+        join_buffer_size="256K"
+        read_buffer_size="256K"
+        sort_buffer_size="512K"
+        table_definition_cache="8192"
+        table_open_cache="8192"
+        thread_cache_size="256"
+        tmp_table_size="512M"
+        max_heap_table_size="512M"
+        query_cache_limit="1024K"
+        query_cache_size="128M"
+        innodb_open_files="8000"
+        innodb_buffer_pool_size="1024M"
+        innodb_io_capacity="400"
+        aria_pagecache_buffer_size="64M"
+        aria_sort_buffer_size="64M"
+        net_buffer_length="16384"
+        read_rnd_buffer_size="512K"
+        innodb_log_file_size="384M"
+        innodb_read_io_threads="4"
+        aria_log_file_size="64M"
+        key_buffer="384M "
+        sort_buffer="64M"
+        read_buffer="64M"
+        write_buffer="64M"
+    fi
+
+    if [[ ${RAM_TOTAL} -gt 16793216 && ${RAM_TOTAL} -le 33586432 ]]; then #16GB Ram
+        max_allowed_packet="64M"
+        back_log="768"
+        max_connections="500"
+        key_buffer_size="512M"
+        myisam_sort_buffer_size="512M"
+        myisam_max_sort_file_size="4096M"
+        innodb_log_buffer_size="32M"
+        join_buffer_size="1M"
+        read_buffer_size="1M"
+        sort_buffer_size="2M"
+        table_definition_cache="10240"
+        table_open_cache="10240"
+        thread_cache_size="384"
+        tmp_table_size="768M"
+        max_heap_table_size="768M"
+        query_cache_limit="1024K"
+        query_cache_size="160M"
+        innodb_open_files="10000"
+        innodb_buffer_pool_size="4096M"
+        innodb_io_capacity="500"
+        aria_pagecache_buffer_size="128M"
+        aria_sort_buffer_size="128M"
+        net_buffer_length="16384"
+        read_rnd_buffer_size="512K"
+        innodb_log_file_size="640M"
+        innodb_read_io_threads="4"
+        aria_log_file_size="64M"
+        key_buffer="768M "
+        sort_buffer="128M"
+        read_buffer="128M"
+        write_buffer="128M"
+    fi
+
+    if [[ "$(expr "${RAM_TOTAL}" \>= 33586432)" == "1" ]]; then #32GB Ram
+        max_allowed_packet="64M"
+        back_log="1024"
+        max_connections="600"
+        key_buffer_size="768M"
+        myisam_sort_buffer_size="768M"
+        myisam_max_sort_file_size="8192M"
+        innodb_log_buffer_size="64M"
+        join_buffer_size="2M"
+        read_buffer_size="2M"
+        sort_buffer_size="2M"
+        table_definition_cache="10240"
+        table_open_cache="10240"
+        thread_cache_size="384"
+        tmp_table_size="1024M"
+        max_heap_table_size="1024M"
+        query_cache_limit="1536K"
+        query_cache_size="256M"
+        innodb_open_files="10000"
+        innodb_buffer_pool_size="8192M"
+        innodb_io_capacity="600"
+        aria_pagecache_buffer_size="128M"
+        aria_sort_buffer_size="128M"
+        net_buffer_length="16384"
+        read_rnd_buffer_size="512K"
+        innodb_log_file_size="768M"
+        innodb_read_io_threads="4"
+        aria_log_file_size="64M"
+        key_buffer="1024M "
+        sort_buffer="256M"
+        read_buffer="256M"
+        write_buffer="256M"
+    fi
+
+    if [[ "$(expr "${RAM_TOTAL}" \>= 64000000)" == "1" ]]; then #64GB Ram
+        max_allowed_packet="80M"
+        back_log="1024"
+        max_connections="800"
+        key_buffer_size="1024M"
+        myisam_sort_buffer_size="1024M"
+        myisam_max_sort_file_size="10240M"
+        innodb_log_buffer_size="64M"
+        join_buffer_size="2M"
+        read_buffer_size="2M"
+        sort_buffer_size="2M"
+        table_definition_cache="10240"
+        table_open_cache="10240"
+        thread_cache_size="384"
+        tmp_table_size="1536M"
+        max_heap_table_size="1536M"
+        query_cache_limit="1536K"
+        query_cache_size="256M"
+        innodb_open_files="10000"
+        innodb_buffer_pool_size="12288M"
+        innodb_io_capacity="800"
+        aria_pagecache_buffer_size="256M"
+        aria_sort_buffer_size="256M"
+        net_buffer_length="16384"
+        read_rnd_buffer_size="512K"
+        innodb_log_file_size="1024M"
+        innodb_read_io_threads="4"
+        aria_log_file_size="128M"
+        key_buffer="1536M "
+        sort_buffer="384M"
+        read_buffer="384M"
+        write_buffer="384M"
+    fi
+}
+
+# Update Menu
+cd /var/hostvn
+rm -rf menu
+wget http://scripts.hostvn.net/ubuntu/update/menu.tar.gz
+tar -xvf menu.tar.gz &> /dev/null && rm -rf menu.tar.gz
+clear
+cd menu
+chmod +x ./* &> /dev/null
+chmod +x ./*/* &> /dev/null
+chmod +x ./*/*/* &> /dev/null
+chmod +x ./*/*/*/* &> /dev/null
+chmod +x /var/hostvn/menu/cronjob/* &> /dev/null
+dos2unix ./* &> /dev/null
+dos2unix ./*/* &> /dev/null
+dos2unix ./*/*/* &> /dev/null
+dos2unix ./*/*/*/* &> /dev/null
+rm -rf /usr/bin/hostvn
+mv /var/hostvn/menu/hostvn /usr/bin/hostvn
+sed -i '/script_version=/d' /var/hostvn/.hostvn.conf
+echo "script_version=${script_version}" >> /var/hostvn/.hostvn.conf
+
+# if [ ! -f '/usr/bin/mariadb-backup' ]; then
+#     apt install mariadb-backup -y
+# fi
+
+# Update Nginx config
+check_disable_xmlrpc=$(grep -w "=" "/etc/nginx/wordpress/disable_xmlrpc.conf")
+if [ -z "${check_disable_xmlrpc}" ]; then
+    rm -rf /etc/nginx/wordpress/disable_xmlrpc.conf
+    cat >> "/etc/nginx/wordpress/disable_xmlrpc.conf" << END
+# Disable XML-RPC
+location = /xmlrpc.php { deny all; access_log off; log_not_found off; }
+END
+fi
+
+check_wp_snapshots=$(grep -w "wp-snapshots" "/etc/nginx/wordpress/wordpress_secure.conf")
+check_wp_comment=$(grep -w "wp-comments" "/etc/nginx/wordpress/wordpress_secure.conf")
+check_request_method=$(grep -w "request_method" "/etc/nginx/wordpress/wordpress_secure.conf")
+if [[ -z "${check_wp_snapshots}" || -n "${check_request_method}" || -n "${check_wp_comment}" ]]; then
+    cat > "/etc/nginx/wordpress/wordpress_secure.conf" << END
+rewrite /wp-admin$ \$scheme://\$host\$uri/ permanent;
+
+location /wp-includes/{
+    location ~ \.(gz|tar|bzip2|7z|php|php5|php7|log|error|py|pl|kid|love|cgi)\$ { deny all; }
+}
+location /wp-content/uploads {
+    location ~ \.(gz|tar|bzip2|7z|php|php5|php7|log|error|py|pl|kid|love|cgi)\$ { deny all; }
+}
+location /sql { deny all; access_log off; log_not_found off; }
+location /wp-content/updraft { deny all; access_log off; log_not_found off; }
+location /wp-content/backups-dup-pro { deny all; access_log off; log_not_found off; }
+location /wp-snapshots { deny all; access_log off; log_not_found off; }
+location /wp-content/uploads/sucuri { deny all; access_log off; log_not_found off; }
+location /wp-content/uploads/nginx-helper { deny all; access_log off; log_not_found off; }
+location = /wp-config.php { deny all; access_log off; log_not_found off; }
+location = /wp-links-opml.php { deny all; access_log off; log_not_found off; }
+location = /wp-config-sample.php { deny all; access_log off; log_not_found off; }
+location = /readme.html { deny all; access_log off; log_not_found off; }
+location = /license.txt { deny all; access_log off; log_not_found off; }
+
+# enable gzip on static assets - php files are forbidden
+location /wp-content/cache {
+# Cache css & js files
+    location ~* \.(?:css(\.map)?|js(\.map)?|.html)\$ {
+        add_header Access-Control-Allow-Origin *;
+        access_log off;
+        log_not_found off;
+        expires 365d;
+    }
+    location ~ \.php\$ { deny all; access_log off; log_not_found off; }
+}
+END
+fi
+
+# Update cronjob
+cron_cf_exists=$(crontab -l | grep -w 'updateCloudflareRangeIP')
+if [ -z "${cron_cf_exists}" ]; then
+    crontab -l > updateCf
+    echo "0 3 * * * bash /var/hostvn/menu/cronjob/updateCloudflareRangeIP >/dev/null 2>&1" >> updateCf
+    crontab updateCf
+    rm -rf updateCf
+fi
+
+# Update fail2ban config
+
+admin_port=$(grep -w "admin_port" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+ssh_port=$(grep -w "ssh_port" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+admin_email=$(grep -w "admin_email" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+check_jail_local_config=$(grep -w "${admin_port}" "/etc/fail2ban/jail.local")
+
+if [ -z "${check_jail_local_config}" ]; then
+    rm -rf /etc/fail2ban/jail.local
+    if [ -f "/var/hostvn/custom/fail2ban/jail.local" ]; then
+        cp /var/hostvn/custom/fail2ban/jail.local /etc/fail2ban/jail.local
+    else
+        cp /var/hostvn/menu/template/fail2ban/jail.local /etc/fail2ban/jail.local
+    fi
+
+    sed -i "s/SSH_PORT/${ssh_port}/g" /etc/fail2ban/jail.local
+    sed -i "s/ADMIN_PORT/${admin_port}/g" /etc/fail2ban/jail.local
+    sed -i "s/ADMIN_EMAIL/${admin_email}/g" /etc/fail2ban/jail.local
+fi
+
+check_http_auth_config=$(grep -w "${admin_port}" "/etc/fail2ban/jail.d/nginx-http-auth.conf")
+if [[ -z "${check_http_auth_config}" ]]; then
+    cat > "/etc/fail2ban/jail.d/nginx-http-auth.conf" << END
+[nginx-http-auth]
+enabled  = true
+filter   = nginx-http-auth
+port     = ${admin_port}
+logpath  = /var/log/nginx/error.log;
+maxretry = 5
+bantime  = 86400
+END
+fi
+
+systemctl restart fail2ban
+
+check_web_apps_config=$(grep -w "nginx_error" "/etc/nginx/web_apps.conf")
+if [ -n "${check_web_apps_config}" ]; then
+    rm -rf /etc/nginx/web_apps.conf
+    cat >> "/etc/nginx/web_apps.conf" <<EOdefault_vhost
+upstream php-app {
+    server unix:/var/run/php-fpm.sock;
+}
+
+server {
+    listen 80 default_server;
+    root /usr/share/nginx/html/;
+    index index.html index.htm;
+    include /etc/nginx/extra/security.conf;
+    error_page 400 401 403 404 500 502 503 504 /50x.html;
+}
+
+server {
+    listen 443 ssl http2 default_server;
+    root /usr/share/nginx/html/;
+    index index.html index.htm;
+
+    ssl_certificate         /etc/nginx/ssl/server/server.crt;
+    ssl_certificate_key     /etc/nginx/ssl/server/server.key;
+
+    include /etc/nginx/extra/security.conf;
+    error_page 400 401 403 404 500 502 503 504 /50x.html;
+}
+
+server {
+    listen ${admin_port};
+
+    server_name ${IPADDRESS};
+
+    access_log off;
+    log_not_found off;
+    error_log /var/log/nginx/error.log;
+
+    root /usr/share/nginx/private;
+    index index.php index.html index.htm;
+
+    auth_basic "Restricted";
+    auth_basic_user_file /usr/share/nginx/auth/.htpasswd;
+
+    include /etc/nginx/apps/phpmyadmin.conf;
+    include /etc/nginx/apps/opcache.conf;
+    include /etc/nginx/apps/memcached.conf;
+    include /etc/nginx/apps/redis.conf;
+
+    location /nginx_status {
+        stub_status on;
+        access_log   off;
+        allow 127.0.0.1;
+        allow ${IPADDRESS};
+        deny all;
+    }
+
+    location /php_status {
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME  \$document_root\$fastcgi_script_name;
+        include /etc/nginx/fastcgi_params;
+        allow 127.0.0.1;
+        allow ${IPADDRESS};
+        deny all;
+    }
+
+    error_page 400 401 403 404 500 502 503 504 /50x.html;
+    include /etc/nginx/extra/security.conf;
+    include /etc/nginx/extra/staticfiles.conf;
+}
+EOdefault_vhost
+fi
+
+
+# fix phpmyadmin
+check_collation_config=$(grep -w "DefaultConnectionCollation" "/usr/share/nginx/private/phpmyadmin/config.inc.php")
+if [[ -z "${check_collation_config}" ]]; then
+    cat >> "/usr/share/nginx/private/phpmyadmin/config.inc.php" << END
+\$cfg['DefaultCharset'] = 'utf8';
+\$cfg['DefaultConnectionCollation'] = 'utf8_general_ci';
+END
+fi
+
+check_nginx_rlimit_nofile=$(grep -w "#worker_rlimit_nofile" "/etc/nginx/nginx.conf")
+if [ -n "${check_nginx_rlimit_nofile}" ]; then
+    sed -i "s/#worker_rlimit_nofile/worker_rlimit_nofile/g" /etc/nginx/nginx.conf
+fi
+
+if [[ ! -f "/etc/nginx/wordpress/webp_express.conf" ]]; then
+    cat >> "/etc/nginx/wordpress/webp_express.conf" << EOwebp_express
+# WebP Express rules
+location ~* ^/?wp-content/.*\.(png|jpe?g)$ {
+    add_header Vary Accept;
+    expires 365d;
+    if (\$http_accept !~* "webp"){
+        break;
+    }
+    try_files
+        /wp-content/webp-express/webp-images/doc-root/\$uri.webp
+        \$uri.webp
+        /wp-content/plugins/webp-express/wod/webp-on-demand.php?xsource=x\$request_filename&wp-content=wp-content
+        ;
+}
+
+# Route requests for non-existing webps to the converter
+location ~* ^/?wp-content/.*\.(png|jpe?g)\.webp$ {
+    try_files
+        \$uri
+        /wp-content/plugins/webp-express/wod/webp-realizer.php?xdestination=x\$request_filename&wp-content=wp-content
+        ;
+}
+# (WebP Express rules ends here)
+EOwebp_express
+fi
+
+if [ ! -f "/usr/local/bin/composer1" ]; then
+    wget https://getcomposer.org/download/1.10.20/composer.phar
+    mv composer.phar /usr/local/bin/composer1
+    chmod +x /usr/local/bin/composer1
+fi
+
+if [ ! -f "/usr/sbin/sendmail" ]; then
+    apt-get install sendmail -y
+fi
+
+# Update skip Nginx cache config
+rm -rf /etc/nginx/extra/skip_cache.conf
+    cat >> "/etc/nginx/extra/skip_cache.conf" << EOskip_cache
+# Enable SSI
+# https://en.wikipedia.org/wiki/Server_Side_Includes
+ssi on;
+
+# Enable caching for all by default
+set \$skip_cache 0;
+
+# Disable cache for all requests except GET and HEAD
+if (\$request_method !~ ^(GET|HEAD)$) { set \$skip_cache 1; }
+
+# Disable cache for all requests with a query string
+# You should disable this section if you use query string only for users tracking
+if (\$query_string != "") { set \$skip_cache 1; }
+
+# Disable cache for all logged in users or recent commenters
+# Add your custom cookies here!
+if (\$http_cookie ~* "nginx_no_cache|PHPSESSID") { set \$skip_cache 1; }
+# Wordpress
+if (\$http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_no_cache|wordpress_logged_in") {
+    set \$skip_cache 1;
+}
+# Magento
+#if (\$http_cookie ~* "frontend_cid|frontend|sid|adminhtml|EXTERNAL_NO_CACHE") { set \$skip_cache 1; }
+
+# Disable cache for uris containing the following segments
+# If is evil and you can speedup this section by using locations instead
+# https://www.nginx.com/resources/wiki/start/topics/depth/ifisevil/
+# https://serverfault.com/questions/509327/can-we-jump-to-another-location-from-a-location-in-nginx
+# Best practice
+if (\$request_uri ~* "/ping|/metrics|/nginx_status|/admin|/administrator|/login|/feed|index.php|sitemap(_index)?.xml") {
+    set \$skip_cache 1;
+}
+# Wordpress
+if (\$request_uri ~* "/wp-admin/|/xmlrpc.php|wp-.*.php|/feed/|index.php|sitemap(_index)?.xml") {
+    set \$skip_cache 1;
+}
+# Magento
+# http://devdocs.magento.com/guides/v2.0/config-guide/varnish/config-varnish.html
+if (\$request_uri ~* "(index|litespeed).php|admin|api|cron.php|/checkout/|/account/|/brand-ambassador/|/brand-ambassador-coupon/|/brand-ambassador-program/|/affiliateplusstatistic/|/brand-ambassador/index/listTransaction/|/brand-ambassador/index/paymentForm/|/brand-ambassador-program/index/index/|/brand-ambassador/banner/list/|/brand-ambassador-coupon/index/index/|/brand-ambassador/refer/index/|/brand-ambassador/index/payments/|/brand-ambassador/index/referrers/|/affiliateplusstatistic/statistic/index/|/brand-ambassador/account/edit/|/checkout/cart/|/repeat-delivery") {
+    set \$skip_cache 1;
+}
+EOskip_cache
+
+if [ ! -f "/etc/nginx/extra/skip_cache_woo.conf" ]; then
+    cat >> "/etc/nginx/extra/skip_cache_woo.conf" << EOskip_cache_woo
+#WooCommerce
+if (\$request_uri ~* "/store.*|/cart.*|/my-account.*|/checkout.*|/addons.*") {
+    set \$skip_cache 1;
+}
+if ( \$arg_add-to-cart != "" ) {
+    set \$skip_cache 1;
+}
+if ( \$cookie_woocommerce_items_in_cart != "0" ) {
+    set \$skip_cache 1;
+}
+EOskip_cache_woo
+fi
+
+cd /var/hostvn/users
+
+for entry in .*.conf; do
+    domain_user=$(grep -w "username" "$entry" | cut -f2 -d'=')
+    domain=${entry/.}
+    
+    if [[ -n "$php1_version" && -f /etc/php/"$php1_version"/fpm/pool.d/"$domain" ]]; then
+        sed -i '/session.save_path/d' /etc/php/"$php1_version"/fpm/pool.d/"$domain"
+        sed -i '/soap.wsdl_cache_dir/d' /etc/php/"$php1_version"/fpm/pool.d/"$domain"
+        sed -i '/open_basedir/d' /etc/php/"$php1_version"/fpm/pool.d/"$domain"
+        echo "php_admin_value[open_basedir] = /home/${domain_user}/:/dev/urandom:/usr/share/php/:/dev/shm:/tmp" >> /etc/php/"$php1_version"/fpm/pool.d/"$domain"
+
+    fi
+
+    if [[ -n "$php2_version" && -f /etc/php/"$php2_version"/fpm/pool.d/"$entry" ]]; then
+        sed -i '/session.save_path/d' /etc/php/"$php2_version"/fpm/pool.d/"$domain"
+        sed -i '/soap.wsdl_cache_dir/d' /etc/php/"$php2_version"/fpm/pool.d/"$domain"
+        sed -i '/open_basedir/d' /etc/php/"$php2_version"/fpm/pool.d/"$domain"
+        echo "php_admin_value[open_basedir] = /home/${domain_user}/:/dev/urandom:/usr/share/php/:/dev/shm:/tmp" >> /etc/php/"$php2_version"/fpm/pool.d/"$domain"
+    fi
+
+    domain=${domain//.conf}
+
+    if [ -d "/home/${domain_user}/php" ]; then
+        rm -rf /home/"${domain_user}"/php
+        mkdir -p /home/"${domain_user}"/php
+        chown -R "${domain_user}":"${domain_user}" /home/"${domain_user}"/php
+    fi
+    
+    if [ -f "/etc/nginx/php/${domain}/php_cache.conf" ]; then
+        check_php_cache=$(grep -w '$no_cache' "/etc/nginx/php/${domain}/php_cache.conf")
+        if [ -n "${check_php_cache}" ]; then
+            sed -i 's|$no_cache|$skip_cache|g' /etc/nginx/php/"${domain}"/php_cache.conf
+        fi
+    fi
+
+    if [ -f "/etc/nginx/php/${domain}/php_no_cache.conf" ]; then
+        check_php_no_cache=$(grep -w '$no_cache' "/etc/nginx/php/${domain}/php_no_cache.conf")
+        if [ -n "${check_php_no_cache}" ]; then
+            sed -i 's|$no_cache|$skip_cache|g' /etc/nginx/php/"${domain}"/php_no_cache.conf
+        fi
+    fi
+    
+    if [ -f "/etc/nginx/php/${domain}/php_cache_woo.conf" ]; then
+        check_php_cache_woo=$(grep -w '$no_cache' "/etc/nginx/php/${domain}/php_cache_woo.conf")
+        check_skip_cache_woo=$(grep -w 'skip_cache_woo' "/etc/nginx/php/${domain}/php_cache_woo.conf")
+
+        if [ -n "${check_php_cache_woo}" ]; then
+            sed -i 's|$no_cache|$skip_cache|g' /etc/nginx/php/"${domain}"/php_cache_woo.conf
+        fi
+
+        if [ -z "${check_skip_cache_woo}" ]; then
+            sed -i "/skip_cache.conf;/a include /etc/nginx/extra/skip_cache_woo.conf;" /etc/nginx/php/"${domain}"/php_cache_woo.conf
+        fi
+    fi
+done
+
+UPDATE_LINK="http://scripts.hostvn.net/ubuntu/update"
+MODULE_PATH="/usr/share/nginx_module"
+more_clear_headers_v=$(curl -s ${UPDATE_LINK}/version | grep "more_clear_headers_v=" | cut -f2 -d'=')
+
+if [[ ! -d "${MODULE_PATH}/headers-more-nginx-module-${more_clear_headers_v}" ]]; then
+    apt-get install build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev -y
+    service nginx stop
+    mkdir -p "${MODULE_PATH}"
+    NGINX_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
+    NPS_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nps_version=" | cut -f2 -d'=')
+    ngx_cache_purge_version=$(curl -s ${UPDATE_LINK}/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
+    ngx_cache_purge_version=$(curl -s ${UPDATE_LINK}/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
+    openssl_version=$(curl -s ${UPDATE_LINK}/version | grep "openssl_version=" | cut -f2 -d'=')
+    pcre_version=$(curl -s ${UPDATE_LINK}/version | grep "pcre_version=" | cut -f2 -d'=')
+    zlib_version=$(curl -s ${UPDATE_LINK}/version | grep "zlib_version=" | cut -f2 -d'=')
+    nginx_module_vts_v=$(curl -s ${UPDATE_LINK}/version | grep "nginx_module_vts_v=" | cut -f2 -d'=')
+
+    cd "${MODULE_PATH}" || exit
+
+    rm -rf "${MODULE_PATH:?}"/*
+
+    wget -O- https://github.com/apache/incubator-pagespeed-ngx/archive/v"${NPS_VERSION}".tar.gz | tar -xz
+    nps_dir=$(find . -name "*pagespeed-ngx-${NPS_VERSION}" -type d)
+    cd "$nps_dir" || exit
+    NPS_RELEASE_NUMBER=${NPS_VERSION/beta/}
+    NPS_RELEASE_NUMBER=${NPS_VERSION/stable/}
+
+    psol_url=https://dl.google.com/dl/page-speed/psol/${NPS_RELEASE_NUMBER}.tar.gz
+    [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
+    wget -O- "${psol_url}" | tar -xz
+
+    cd "${MODULE_PATH}" || exit
+    wget -O- http://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
+    wget -O- http://scripts.hostvn.net/ubuntu/modules/ngx_cache_purge-"${ngx_cache_purge_version}".tar.gz | tar -xz
+    wget -O- http://scripts.hostvn.net/ubuntu/modules/openssl-OpenSSL_"${openssl_version}".tar.gz | tar -xz
+    wget -O- http://scripts.hostvn.net/ubuntu/modules/pcre-"${pcre_version}".tar.gz | tar -xz
+    wget -O- https://www.zlib.net/zlib-"${zlib_version}".tar.gz | tar -xz
+    wget -O- http://scripts.hostvn.net/ubuntu/modules/headers-more-nginx-module-"${more_clear_headers_v}".tar.gz | tar -xz
+    wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
+
+    git clone --depth 1 https://github.com/google/ngx_brotli
+    cd ngx_brotli && git submodule update --init
+
+    cd "${MODULE_PATH}"/nginx-"${NGINX_VERSION}"/ || exit
+    ./configure \
+        "--user=nginx" \
+        "--group=nginx" \
+        "--prefix=/usr" \
+        "--sbin-path=/usr/sbin" \
+        "--conf-path=/etc/nginx/nginx.conf" \
+        "--pid-path=/var/run/nginx.pid" \
+        "--http-log-path=/var/log/nginx/access_log" \
+        "--error-log-path=/var/log/nginx/error_log" \
+        "--without-mail_imap_module" \
+        "--without-mail_smtp_module" \
+        "--with-http_ssl_module" \
+        "--with-http_realip_module" \
+        "--with-http_stub_status_module" \
+        "--with-http_gzip_static_module" \
+        "--with-http_dav_module" \
+        "--with-http_v2_module" \
+        "--with-pcre=../pcre-${pcre_version}" \
+        "--with-pcre-jit" \
+        "--with-zlib=../zlib-${zlib_version}" \
+        "--with-openssl=../openssl-OpenSSL_${openssl_version}" \
+        "--with-openssl-opt=no-nextprotoneg" \
+        "--add-module=../ngx_cache_purge-${ngx_cache_purge_version}" \
+        "--add-module=../incubator-pagespeed-ngx-${NPS_VERSION}" \
+        "--add-module=../headers-more-nginx-module-${more_clear_headers_v}" \
+        "--add-module=../ngx_brotli" \
+        "--add-module=../nginx-module-vts-${nginx_module_vts_v}" \
+        "--with-cc-opt='-D FD_SETSIZE=32768'"
+
+        make && make install
+        
+        CPU_CORES=$(grep -c "processor" /proc/cpuinfo)
+        MAX_CLIENT=$((CPU_CORES * 1024))
+        rm -rf /etc/nginx/nginx.conf
+        
+       cat >> "/etc/nginx/nginx.conf" <<EONGINXCONF
+user nginx;
+worker_processes auto;
+worker_rlimit_nofile 260000;
+
+error_log  /var/log/nginx/error.log warn;
+pid        /run/nginx.pid;
+
+events {
+    worker_connections ${MAX_CLIENT};
+    accept_mutex off;
+    accept_mutex_delay 200ms;
+    use epoll;
+    #multi_accept on;
+}
+
+http {
+    index  index.html index.htm index.php;
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    charset utf-8;
+
+    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                  '\$status \$body_bytes_sent "\$http_referer" '
+                  '"\$http_user_agent" "\$http_x_forwarded_for"';
+
+    access_log  off;
+    server_tokens off;
+
+    sendfile on;
+
+    tcp_nopush on;
+    tcp_nodelay off;
+
+    types_hash_max_size 2048;
+    server_names_hash_bucket_size 128;
+    server_names_hash_max_size 10240;
+    client_max_body_size 1024m;
+    client_body_buffer_size 128k;
+    client_body_in_file_only off;
+    client_body_timeout 60s;
+    client_header_buffer_size 256k;
+    client_header_timeout  20s;
+    large_client_header_buffers 8 256k;
+    keepalive_timeout 15;
+    keepalive_disable msie6;
+    reset_timedout_connection on;
+    send_timeout 60s;
+
+    disable_symlinks if_not_owner from=\$document_root;
+    server_name_in_redirect off;
+
+    open_file_cache max=2000 inactive=20s;
+    open_file_cache_valid 120s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # Limit Request
+    limit_req_status 403;
+    # limit the number of connections per single IP
+    limit_conn_zone \$binary_remote_addr zone=conn_limit_per_ip:10m;
+    # limit the number of requests for a given session
+    limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=1r/s;
+
+    # Custom Response Headers
+    more_set_headers 'Server: HOSTVN.NET';
+    more_set_headers 'X-Content-Type-Options    "nosniff" always';
+    more_set_headers 'X-XSS-Protection          "1; mode=block" always';
+    more_set_headers 'Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always';
+    more_set_headers 'Referrer-Policy no-referrer-when-downgrade';
+    
+    # Custom Variables
+    map \$scheme \$https_suffix { default ''; https '-https'; }
+
+    include /etc/nginx/extra/nginx_cache.conf;
+    include /etc/nginx/extra/gzip.conf;
+    include /etc/nginx/extra/brotli.conf;
+    include /etc/nginx/extra/ssl.conf;
+    include /etc/nginx/extra/cloudflare.conf;
+    include /etc/nginx/web_apps.conf;
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/redirect/*.conf;
+}
+EONGINXCONF
+
+fi
+
+if [ ! -d "/usr/local/apache2/htdocs/tcpdf/image" ]; then
+    mkdir -p /usr/local/apache2/htdocs/tcpdf/image
+    chown -R nginx. /usr/local/apache2/htdocs/tcpdf/image
+fi
+
+if [ ! -d "/var/www/tcpdf/images" ]; then
+    mkdir -p /var/www/tcpdf/images
+    chown -R nginx. /var/www/tcpdf/images
+fi
+
+PHP1_VERSION=$(grep -w "php1_version" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+PHP2_VERSION=$(grep -w "php2_version" "/var/hostvn/.hostvn.conf" | cut -f2 -d'=')
+
+sed -i "/open_basedir/d" /etc/php/${PHP1_VERSION}/fpm/pool.d/www.conf
+echo "php_admin_value[open_basedir] = /usr/share/nginx/:/tmp/:/var/tmp/:/dev/urandom:/usr/share/php/:/dev/shm:/var/lib/php/sessions/:/usr/share/doc:/var/www/:/usr/local/apache2/htdocs/" >> /etc/php/${PHP1_VERSION}/fpm/pool.d/www.conf
+
+if [ -f "/etc/php/${PHP2_VERSION}/fpm/pool.d/www.conf" ]; then
+    sed -i "/open_basedir/d" /etc/php/${PHP2_VERSION}/fpm/pool.d/www.conf
+    echo "php_admin_value[open_basedir] = /usr/share/nginx/:/tmp/:/var/tmp/:/dev/urandom:/usr/share/php/:/dev/shm:/var/lib/php/sessions/:/usr/share/doc:/var/www/:/usr/local/apache2/htdocs/" >> /etc/php/${PHP2_VERSION}/fpm/pool.d/www.conf
+fi
+
+check_static=$(grep -w "#add_header" "/etc/nginx/extra/staticfiles.conf")
+if [ -z "$check_static" ]; then
+    cat > "/etc/nginx/extra/staticfiles.conf" <<EOSTATICFILES
+location = /favicon.ico { allow all; log_not_found off; access_log off; }
+location = /robots.txt { allow all; log_not_found off; access_log off; }
+location ~* \.(gif|jpg|jpeg|png|ico|webp)\$ {
+    gzip_static off;
+    brotli_static off;
+    #add_header Access-Control-Allow-Origin *;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate, immutable, stale-while-revalidate=86400, stale-if-error=604800";
+    access_log off;
+    expires 365d;
+    break;
+}
+location ~* \.(3gp|wmv|avi|asf|asx|mpg|mpeg|mp4|pls|mp3|mid|wav|swf|flv|exe|zip|tar|rar|gz|tgz|bz2|uha|7z|doc|docx|xls|xlsx|pdf|iso)\$ {
+    gzip_static off;
+    brotli_static off;
+    sendfile off;
+    sendfile_max_chunk 1m;
+    #add_header Access-Control-Allow-Origin *;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate, immutable, stale-while-revalidate=86400, stale-if-error=604800";
+    access_log off;
+    expires 365d;
+    break;
+}
+location ~* \.(js)\$ {
+    #add_header Access-Control-Allow-Origin *;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate, immutable, stale-while-revalidate=86400, stale-if-error=604800";
+    access_log off;
+    expires 365d;
+    break;
+}
+location ~* \.(css)\$ {
+    #add_header Access-Control-Allow-Origin *;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate, immutable, stale-while-revalidate=86400, stale-if-error=604800";
+    access_log off;
+    expires 365d;
+    break;
+}
+location ~* \.(eot|svg|ttf|woff|woff2)\$ {
+    #add_header Access-Control-Allow-Origin *;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+    access_log off;
+    expires 365d;
+    break;
+}
+EOSTATICFILES
+fi
+
+if [[ ! -f /etc/nginx/extra/rocket_nginx.conf && -f /var/hostvn/menu/template/rocket_nginx.conf ]]; then
+    cp /var/hostvn/menu/template/rocket_nginx.conf /etc/nginx/extra/rocket_nginx.conf
+fi
+
+if nginx -t; then
+    systemctl reload php"${PHP1_VERSION}"-fpm
+    systemctl reload php"${PHP2_VERSION}"-fpm
+    systemctl restart nginx
+fi
+
+if [ -f /var/hostvn/telegram/servicesNotify.sh ]; then
+    CHAT_ID=$(grep -w "CHAT_ID=" "/var/hostvn/telegram/servicesNotify.sh" | cut -f2 -d'=')
+    TOKEN=$(grep -w "TOKEN=" "/var/hostvn/telegram/servicesNotify.sh" | cut -f2 -d'=')
+    if [ -f /var/hostvn/telegram/diskNotify.sh ]; then
+        TOKEN1=$(grep -w "TOKEN=" "/var/hostvn/telegram/diskNotify.sh" | cut -f2 -d'=')
+        if [ -z "$TOKEN1" ]; then
+            rm -rf /var/hostvn/telegram/diskNotify.sh
+            cat >> "/var/hostvn/telegram/diskNotify.sh" << END
+#!/bin/bash
+
+CHAT_ID="$CHAT_ID"
+TOKEN="$TOKEN"
+TIMEOUT="10"
+THRESHOLD=90
+URL="https://api.telegram.org/bot\$TOKEN/sendMessage"
+DATE_EXEC="\$(date "+%d %b %Y %H:%M")"
+DISK_CURRENT=\$(df -P / | grep / | awk '{ print \$5}' | sed 's/%//g')
+IPADDR=\$(curl -s http://cyberpanel.sh/?ip)
+
+if [[ \$DISK_CURRENT -ge \$THRESHOLD ]]; then
+    TEXT="\$DATE_EXEC: CANH BAO - VPS \$IPADDR da su dung \${DISK_CURRENT}% dung luong."
+    curl -s --max-time \$TIMEOUT -d "chat_id=\$CHAT_ID&disable_web_page_preview=1&text=\$TEXT" \$URL > /dev/null
+fi
+END
+        fi
+    fi
+
+    if [ -f /etc/profile.d/ssh-notify.sh ]; then
+        TOKEN2=$(grep -w "KEY=" "/etc/profile.d/ssh-notify.sh" | cut -f2 -d'=')
+        if [ -z "$TOKEN2" ]; then
+            rm -rf /etc/profile.d/ssh-notify.sh
+            cat >> "/etc/profile.d/ssh-notify.sh" << END
+#!/bin/sh
+
+USERID="$TELEGRAM_ID"
+KEY="$TOKEN"
+
+TIMEOUT="10"
+URL="https://api.telegram.org/bot\$KEY/sendMessage"
+DATE_EXEC="\$(date "+%d %b %Y %H:%M")"
+TMPFILE='/tmp/ipinfo-\$DATE_EXEC.txt'
+
+if [ -n "\$SSH_CLIENT" ]; then
+  IP=\$(echo \$SSH_CLIENT | awk '{print \$1}')
+  PORT=\$(echo \$SSH_CLIENT | awk '{print \$3}')
+  HOSTNAME=\$(hostname -f)
+  IPADDR=\$(hostname -I | awk '{print \$1}')
+  curl http://ipinfo.io/\$IP -s -o \$TMPFILE
+  CITY=\$(cat \$TMPFILE | jq '.city' | sed 's/"//g')
+  REGION=\$(cat \$TMPFILE | jq '.region' | sed 's/"//g')
+  COUNTRY=\$(cat \$TMPFILE | jq '.country' | sed 's/"//g')
+  ORG=\$(cat \$TMPFILE | jq '.org' | sed 's/"//g')
+  TEXT="\$DATE_EXEC: \${USER} logged in to \$HOSTNAME (\$IPADDR) from \$IP - \$ORG - \$CITY, \$REGION, \$COUNTRY on port \$PORT"
+  curl -s --max-time \$TIMEOUT -d "chat_id=\$USERID&disable_web_page_preview=1&text=\$TEXT" \$URL > /dev/null
+  rm \$TMPFILE
+fi
+END
+        fi
+    fi
+fi
+
+if [ -f "/etc/mysql/my.cnf" ]; then
+    utf8mb4_unicode_ci=$(grep -w "utf8mb4_unicode_ci" "/etc/mysql/my.cnf")
+fi
+
+if [ -z "$utf8mb4_unicode_ci" ]; then
+    mariadb_calculation
+    cat >"/etc/mysql/my.cnf" <<EOmy_cnf
+[client]
+port = 3306
+socket = /run/mysqld/mysqld.sock
+default-character-set = utf8mb4
+
+[mysql]
+max_allowed_packet = ${max_allowed_packet}
+
+[mysqld]
+port = 3306
+
+local-infile=0
+#ignore-db-dir=lost+found
+init-connect = 'SET NAMES utf8mb4'
+character-set-server = utf8mb4
+#collation-server      = utf8mb4_unicode_ci
+datadir=/var/lib/mysql
+socket = /run/mysqld/mysqld.sock
+
+#bind-address=127.0.0.1
+
+tmpdir=/tmp
+
+innodb=ON
+#skip-federated
+#skip-pbxt
+#skip-pbxt_statistics
+#skip-archive
+#skip-name-resolve
+#old_passwords
+back_log = ${back_log}
+max_connections = ${max_connections}
+key_buffer_size = ${key_buffer_size}
+myisam_sort_buffer_size = ${myisam_sort_buffer_size}
+myisam_max_sort_file_size = ${myisam_max_sort_file_size}
+join_buffer_size = ${join_buffer_size}
+read_buffer_size = ${read_buffer_size}
+sort_buffer_size = ${sort_buffer_size}
+table_definition_cache = ${table_definition_cache}
+table_open_cache = ${table_open_cache}
+thread_cache_size = ${thread_cache_size}
+wait_timeout = 1800
+connect_timeout = 10
+tmp_table_size = ${tmp_table_size}
+max_heap_table_size = ${max_heap_table_size}
+max_allowed_packet = ${max_allowed_packet}
+#max_seeks_for_key = 4294967295
+#group_concat_max_len = 1024
+max_length_for_sort_data = 1024
+net_buffer_length = ${net_buffer_length}
+max_connect_errors = 100000
+concurrent_insert = 2
+read_rnd_buffer_size = ${read_rnd_buffer_size}
+bulk_insert_buffer_size = 8M
+# query_cache boost for MariaDB >10.1.2+
+query_cache_limit = ${query_cache_limit}
+query_cache_size = ${query_cache_size}
+query_cache_type = 1
+query_cache_min_res_unit = 2K
+query_prealloc_size = 262144
+query_alloc_block_size = 65536
+transaction_alloc_block_size = 8192
+transaction_prealloc_size = 4096
+default-storage-engine = InnoDB
+ft_min_word_len = 3
+log_warnings=1
+slow_query_log=0
+long_query_time=1
+slow_query_log_file=/var/lib/mysql/slowq.log
+log-error=/var/log/mysql/mysqld.log
+
+# innodb settings
+#innodb_large_prefix=1
+innodb_purge_threads=1
+#innodb_file_format = Barracuda
+innodb_file_per_table = 1
+innodb_open_files = ${innodb_open_files}
+innodb_data_file_path= ibdata1:10M:autoextend
+innodb_buffer_pool_size = ${innodb_buffer_pool_size}
+#open_files_limit=100000
+
+## https://mariadb.com/kb/en/mariadb/xtradbinnodb-server-system-variables/#innodb_buffer_pool_instances
+#innodb_buffer_pool_instances=2
+
+#innodb_log_files_in_group = 2
+innodb_log_file_size = ${innodb_log_file_size}
+innodb_log_buffer_size = ${innodb_log_buffer_size}
+innodb_flush_log_at_trx_commit = 2
+innodb_thread_concurrency = 0
+innodb_lock_wait_timeout=50
+innodb_flush_method = O_DIRECT
+#innodb_support_xa=1
+
+# 200 * # DISKS
+innodb_io_capacity = ${innodb_io_capacity}
+innodb_io_capacity_max = 2000
+innodb_read_io_threads = ${innodb_read_io_threads}
+innodb_write_io_threads = 2
+innodb_flush_neighbors = 1
+
+# mariadb settings
+[mariadb]
+#thread-handling = pool-of-threads
+#thread-pool-size= 20
+#mysql --port=3307 --protocol=tcp
+#extra-port=3307
+#extra-max-connections=1
+
+userstat = 0
+key_cache_segments = 1
+aria_group_commit = none
+aria_group_commit_interval = 0
+aria_log_file_size = ${aria_log_file_size}
+aria_log_purge_type = immediate
+aria_pagecache_buffer_size = ${aria_pagecache_buffer_size}
+aria_sort_buffer_size = ${aria_sort_buffer_size}
+
+[mariadb-5.5]
+innodb_file_format = Barracuda
+innodb_file_per_table = 1
+
+#ignore_db_dirs=
+query_cache_strip_comments=0
+
+innodb_read_ahead = linear
+innodb_adaptive_flushing_method = estimate
+innodb_flush_neighbor_pages = 1
+innodb_stats_update_need_lock = 0
+innodb_log_block_size = 512
+
+log_slow_filter =admin,filesort,filesort_on_disk,full_join,full_scan,query_cache,query_cache_miss,tmp_table,tmp_table_on_disk
+
+[mysqld_safe]
+socket=/var/lib/mysql/mysql.sock
+log-error=/var/log/mysqld/mysqld.log
+#nice = -5
+open-files-limit = 8192
+
+[mysqldump]
+quick
+max_allowed_packet = ${max_allowed_packet}
+
+[myisamchk]
+tmpdir=/tmp
+key_buffer = ${key_buffer}
+sort_buffer = ${sort_buffer}
+read_buffer = ${read_buffer}
+write_buffer = ${write_buffer}
+
+[mysqlhotcopy]
+interactive-timeout
+
+[mariadb-10.0]
+innodb_file_format = Barracuda
+innodb_file_per_table = 1
+
+# 2 variables needed to switch from XtraDB to InnoDB plugins
+#plugin-load=ha_innodb
+#ignore_builtin_innodb
+
+## MariaDB 10 only save and restore buffer pool pages
+## warm up InnoDB buffer pool on server restarts
+innodb_buffer_pool_dump_at_shutdown=1
+innodb_buffer_pool_load_at_startup=1
+innodb_buffer_pool_populate=0
+## Disabled settings
+performance_schema=OFF
+innodb_stats_on_metadata=OFF
+innodb_sort_buffer_size=2M
+innodb_online_alter_log_max_size=128M
+query_cache_strip_comments=0
+log_slow_filter =admin,filesort,filesort_on_disk,full_join,full_scan,query_cache,query_cache_miss,tmp_table,tmp_table_on_disk
+EOmy_cnf
+    service mariadb restart
+fi
+
+# SSL Renew cronjob
+ssl_cron_exists=$(crontab -l | grep -w 'acme.sh')
+if [ -n "${ssl_cron_exists}" ]; then
+    crontab -u root -l | grep -v "acme.sh" | crontab -u root -
+fi
+
+ssl_cron_exists=$(crontab -l | grep -w 'acme.sh')
+if [ -z "${ssl_cron_exists}" ]; then
+    crontab -l >auto_ssl
+    echo "0 0 * * * "/root/.acme.sh"/acme.sh --cron --home "/root/.acme.sh" >/dev/null 2>&1" >>auto_ssl
+    crontab auto_ssl
+    rm -rf auto_ssl
+fi
+
+systemctl restart php"${php1_version}"-fpm
+if [ -n "${php2_version}" ]; then
+    systemctl restart php"${php2_version}"-fpm
+fi
+
+# Fix CF config
+cf_cron_exists=$(crontab -l | grep -w 'updateCloudflareRangeIP')
+if [ -n "${cf_cron_exists}" ]; then
+    crontab -u root -l | grep -v "updateCloudflareRangeIP" | crontab -u root -
+fi
+
+cat > "/etc/nginx/extra/cloudflare.conf" << END
+real_ip_header X-Forwarded-For;
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+END
+
+systemctl reload nginx
+
+# Update WP-CLI
+rm -rf /usr/local/bin/wp
+curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+mv wp-cli.phar wp && chmod +x wp
+mv wp /usr/local/bin/
