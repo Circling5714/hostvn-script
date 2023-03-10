@@ -251,7 +251,7 @@ mariadb_calculation() {
 # Update Menu
 cd /var/hostvn
 rm -rf menu
-wget http://scripts.hostvn.net/ubuntu/update/menu.tar.gz
+wget https://f97.github.io/hostvn/menu.tar.gz
 tar -xvf menu.tar.gz &> /dev/null && rm -rf menu.tar.gz
 clear
 cd menu
@@ -609,7 +609,7 @@ for entry in .*.conf; do
     fi
 done
 
-UPDATE_LINK="http://scripts.hostvn.net/ubuntu/update"
+UPDATE_LINK="https://f97.github.io/hostvn"
 MODULE_PATH="/usr/share/nginx_module"
 more_clear_headers_v=$(curl -s ${UPDATE_LINK}/version | grep "more_clear_headers_v=" | cut -f2 -d'=')
 
@@ -641,12 +641,12 @@ if [[ ! -d "${MODULE_PATH}/headers-more-nginx-module-${more_clear_headers_v}" ]]
     wget -O- "${psol_url}" | tar -xz
 
     cd "${MODULE_PATH}" || exit
-    wget -O- http://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
-    wget -O- http://scripts.hostvn.net/ubuntu/modules/ngx_cache_purge-"${ngx_cache_purge_version}".tar.gz | tar -xz
-    wget -O- http://scripts.hostvn.net/ubuntu/modules/openssl-OpenSSL_"${openssl_version}".tar.gz | tar -xz
-    wget -O- http://scripts.hostvn.net/ubuntu/modules/pcre-"${pcre_version}".tar.gz | tar -xz
-    wget -O- https://www.zlib.net/zlib-"${zlib_version}".tar.gz | tar -xz
-    wget -O- http://scripts.hostvn.net/ubuntu/modules/headers-more-nginx-module-"${more_clear_headers_v}".tar.gz | tar -xz
+    wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
+    wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
+    wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
+    wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
+    wget -O- https://www.zlib.net/fossils/zlib-"${zlib_version}".tar.gz | tar -xz
+    wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
     wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
 
     git clone --depth 1 https://github.com/google/ngx_brotli
@@ -753,7 +753,7 @@ http {
     limit_req_zone \$binary_remote_addr zone=req_limit_per_ip:10m rate=1r/s;
 
     # Custom Response Headers
-    more_set_headers 'Server: HOSTVN.NET';
+    more_set_headers 'Server: GITHUB.COM';
     more_set_headers 'X-Content-Type-Options    "nosniff" always';
     more_set_headers 'X-XSS-Protection          "1; mode=block" always';
     more_set_headers 'Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always';
