@@ -45,7 +45,7 @@ _update(){
         apt -y install dos2unix
     fi
     _cd_dir "${BASH_DIR}"
-    curl -sO "${UPDATE_LINK}"/update
+    curl -sO "${UPDATE_LINK}"
     dos2unix update
     chmod +x update
     bash update

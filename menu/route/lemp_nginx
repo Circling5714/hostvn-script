@@ -69,7 +69,7 @@ while [ "${CHOICE}" != "0" ]; do
         if [ ! -f "/usr/bin/git" ]; then
             apt install git -y
         fi
-        UPDATE_LINK="http://scripts.hostvn.net/ubuntu/update"
+        UPDATE_LINK="https://f97.github.io/hostvn"
         NGINX_NEW_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_new_version=" | cut -f2 -d'=')
         NGINX_CURRENT_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
         if [[ -n "$NGINX_NEW_VERSION" && "$NGINX_NEW_VERSION" != "$NGINX_CURRENT_VERSION" ]]; then
@@ -160,7 +160,7 @@ while [ "${CHOICE}" != "0" ]; do
         if [ ! -f "/usr/bin/git" ]; then
             apt install git -y
         fi
-        UPDATE_LINK="http://scripts.hostvn.net/ubuntu/update"
+        UPDATE_LINK="https://f97.github.io/hostvn"
         NGINX_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
         MODULE_PATH="/usr/share/nginx_module"
         mkdir -p "${MODULE_PATH}"
