@@ -1,6 +1,6 @@
 <p align="center"><strong>Auto Install & Optimize LEMP Stack on Ubuntu (18.04, 20.04)</strong></p>
+<p align="center"><strong>##############################################</strong></p>
 
-########################################################################################
 
 This is a shell script used to install LEMP Stack (Nginx - MariaDB - PHP-FPM) on Ubuntu (18.04, 20.04), Debian 10.
 
@@ -96,7 +96,9 @@ This is a shell script used to install LEMP Stack (Nginx - MariaDB - PHP-FPM) on
 
 ## 3. Installation
 
-`curl -sO https://f97.github.io/hostvn/install && chmod +x install && ./install`
+```sh
+curl -sO https://f97.github.io/hostvn/install && chmod +x install && ./install
+```
 
 ## 4. Features to be developed
 
