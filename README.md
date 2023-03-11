@@ -97,7 +97,7 @@ This is a shell script used to install LEMP Stack (Nginx - MariaDB - PHP-FPM) on
 ## 3. Installation
 
 ```sh
-bash <(curl -s https://f97.github.io/hostvn/install)
+sh <(curl https://f97.github.io/hostvn/install || wget -O - https://f97.github.io/hostvn/install)
 ```
 
 ## 4. Features to be developed
