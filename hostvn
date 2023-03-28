@@ -20,7 +20,7 @@ DIR=$(pwd)
 RED='\033[0;31m'
 NC='\033[0m'
 
-SCRIPTS_VERSION="0.2.9"
+SCRIPTS_VERSION="0.2.10"
 IPADDRESS=$(curl -s http://cyberpanel.sh/?ip)
 DIR=$(pwd)
 BASH_DIR="/var/hostvn"
