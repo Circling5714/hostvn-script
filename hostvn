@@ -53,7 +53,7 @@ SELECT_PHP_2="Lua chon phien ban PHP thu hai ban muon su dung:"
 LOGIN_NOTI1="Cam on ban da su dung dich vu cua ${AUTHOR}."
 LOGIN_NOTI2="Neu can ho tro vui long truy cap ${AUTHOR_CONTACT}"
 LOGIN_NOTI3="Truoc khi dat cau hoi vui long xem Document: https://doc.hostvn.vn/"
-LOGIN_NOTI4="De mo menu ban go lenh sau:  hostvn"
+LOGIN_NOTI4="De mo menu ban go lenh sau: hostvn"
 
 # Random Port
 RANDOM_ADMIN_PORT=$(shuf -i 49152-57343 -n 1)
@@ -3646,7 +3646,7 @@ printf "                 File luu thong tin: %s\n" "${FILE_INFO}"
 printf "          Neu can ho tro vui long truy cap %s\n" "${AUTHOR_CONTACT}"
 printf "==========================================================================\n"
 printf "              Luu lai thong tin duoi day de truy cap SSH va phpMyAdmin    \n"
-printf "                  ${RED}%s${NC}\n           \n" "De mo Menu su dung lenh:  hostvn"
+printf "                  ${RED}%s${NC}\n           \n" "De mo Menu su dung lenh: hostvn"
 printf "==========================================================================\n"
 printf "SSH  Port                    : %s\n" "${SSH_PORT}"
 printf "phpMyAdmin                   : %s\n" "http://${IPADDRESS}:${RANDOM_ADMIN_PORT}/phpmyadmin"
