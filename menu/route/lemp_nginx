@@ -101,7 +101,7 @@ while [ "${CHOICE}" != "0" ]; do
             wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
             wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
             wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
-            wget -O- https://www.zlib.net/fossils/zlib-"${zlib_version}".tar.gz | tar -xz
+            wget -O- hhttps://github.com/madler/zlib/releases/download/v"${zlib_version}"/zlib-"${zlib_version}".tar.gzz | tar -xz
             wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
             wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
             git clone --depth 1 https://github.com/google/ngx_brotli
@@ -190,7 +190,7 @@ while [ "${CHOICE}" != "0" ]; do
         wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
         wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
         wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
-        wget -O- https://www.zlib.net/fossils/zlib-"${zlib_version}".tar.gz | tar -xz
+        wget -O- https://github.com/madler/zlib/releases/download/v"${zlib_version}"/zlib-"${zlib_version}".tar.gz | tar -xz
         wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
         wget -O- https://github.com/leev/ngx_http_geoip2_module/archive/refs/tags/3.3.tar.gz | tar -xz
         wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
