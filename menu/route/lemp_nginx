@@ -75,7 +75,7 @@ while [ "${CHOICE}" != "0" ]; do
         if [[ -n "$NGINX_NEW_VERSION" && "$NGINX_NEW_VERSION" != "$NGINX_CURRENT_VERSION" ]]; then
             MODULE_PATH="/usr/share/nginx_module"
             mkdir -p "${MODULE_PATH}"
-            NPS_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nps_version=" | cut -f2 -d'=')
+            NPS_VERSION=1.14.33.1-RC1
             ngx_cache_purge_version=$(curl -s ${UPDATE_LINK}/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
             more_clear_headers_v=$(curl -s ${UPDATE_LINK}/version | grep "more_clear_headers_v=" | cut -f2 -d'=')
             openssl_version=$(curl -s ${UPDATE_LINK}/version | grep "openssl_version=" | cut -f2 -d'=')
@@ -90,9 +90,7 @@ while [ "${CHOICE}" != "0" ]; do
             wget -O- https://github.com/apache/incubator-pagespeed-ngx/archive/v"${NPS_VERSION}".tar.gz | tar -xz
             nps_dir=$(find . -name "*pagespeed-ngx-${NPS_VERSION}" -type d)
             cd "$nps_dir" || exit
-            NPS_RELEASE_NUMBER=${NPS_VERSION/beta/}
-            NPS_RELEASE_NUMBER=${NPS_VERSION/stable/}
-
+            NPS_RELEASE_NUMBER=1.13.35.2-x64
             psol_url=https://dl.google.com/dl/page-speed/psol/${NPS_RELEASE_NUMBER}.tar.gz
             [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
             wget -O- "${psol_url}" | tar -xz
@@ -179,8 +177,7 @@ while [ "${CHOICE}" != "0" ]; do
         wget -O- https://github.com/apache/incubator-pagespeed-ngx/archive/v"${NPS_VERSION}".tar.gz | tar -xz
         nps_dir=$(find . -name "*pagespeed-ngx-${NPS_VERSION}" -type d)
         cd "$nps_dir" || exit
-        NPS_RELEASE_NUMBER=${NPS_VERSION/beta/}
-        NPS_RELEASE_NUMBER=${NPS_VERSION/stable/}
+        NPS_RELEASE_NUMBER=1.13.35.2-x64
 
         psol_url=https://dl.google.com/dl/page-speed/psol/${NPS_RELEASE_NUMBER}.tar.gz
         [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
