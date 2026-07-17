@@ -565,6 +565,10 @@ _run() {
 
             if nginx -t; then
                 _restart_service
+                # Che do Cloudflare Tunnel: tu dong tao DNS tro domain vao tunnel
+                if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+                    bash /var/hostvn/menu/tunnel/cf_tunnel.sh add-dns "${domain}" >/dev/null 2>&1
+                fi
                 clear
                 _show_info
             else

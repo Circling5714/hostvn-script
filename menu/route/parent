@@ -462,6 +462,10 @@ vps_create_swap(){
     . /var/hostvn/menu/controller/vps/create_swap
 }
 
+vps_cloudflare_tunnel(){
+    . /var/hostvn/menu/controller/tunnel/setup
+}
+
 menu_account(){
     . /var/hostvn/menu/route/account_manage
 }
