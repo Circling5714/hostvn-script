@@ -13,6 +13,11 @@
 # Duoc Fail2ban goi khi ban/unban de dong bo len Cloudflare WAF
 # (IP Access Rules, muc zone). Cach dung: cf_waf.sh <ban|unban> <ip>
 # Cau hinh: /var/hostvn/.cf_waf.conf  (CF_WAF_TOKEN, CF_WAF_ZONE)
+#
+# Token trong CF_WAF_TOKEN can quyen (muc Zone):
+#   - Zone > Zone > Read
+#   - Zone > Firewall Services > Edit
+# (thiet lap qua menu Firewall > Dong bo Cloudflare WAF)
 
 CONF="/var/hostvn/.cf_waf.conf"
 [ -f "${CONF}" ] || exit 0

@@ -14,8 +14,22 @@ source /var/hostvn/menu/validate/rule
 source /var/hostvn/menu/helpers/function
 
 # Dong bo Fail2ban -> Cloudflare WAF: khi fail2ban ban 1 IP, IP do cung bi
-# chan tren Cloudflare (IP Access Rules muc zone). Can API token co quyen
-# "Zone > Firewall Services > Edit" cho zone tuong ung.
+# chan tren Cloudflare (IP Access Rules muc zone).
+#
+# ============================ QUYEN API TOKEN =============================
+# Token can 2 quyen (Permissions) sau, deu o muc "Zone":
+#   1. Zone > Zone            > Read   (de tim zone ID tu ten domain)
+#   2. Zone > Firewall Services > Edit (de tao/xoa IP Access Rule chan IP)
+#
+# Cach tao token:
+#   Cloudflare Dashboard > My Profile > API Tokens > Create Token
+#   > "Create Custom Token" > them 2 Permission o tren
+#   > Zone Resources: Include > chon zone (domain) can bao ve
+#   > Continue to summary > Create Token > sao chep token.
+#
+# Luu y: token dung cho SSL wildcard (chi co "DNS:Edit") KHONG du quyen o day,
+# phai tao token rieng hoac them quyen "Firewall Services:Edit".
+# =========================================================================
 
 CONF="/var/hostvn/.cf_waf.conf"
 ACTION_FILE="/etc/fail2ban/action.d/cloudflare-hostvn.conf"
@@ -49,7 +63,16 @@ _enable() {
         apt-get update -y >/dev/null 2>&1; apt-get install -y jq >/dev/null 2>&1
     fi
 
-    read -r -p "Nhap Cloudflare API Token (quyen Zone Firewall Services:Edit) [0=thoat]: " cf_token
+    clear
+    printf "%s\n" "${GREEN}=== Yeu cau ve Cloudflare API Token ===${NC}"
+    printf "%s\n" "Token can 2 quyen (deu o muc Zone):"
+    printf "%s\n" "  1. Zone > Zone > Read"
+    printf "%s\n" "  2. Zone > Firewall Services > Edit"
+    printf "%s\n" "Tao tai: Cloudflare > My Profile > API Tokens > Create Custom Token,"
+    printf "%s\n" "chon Zone Resources = domain can bao ve."
+    printf "%s\n" "${RED}(Token dung cho SSL wildcard chi co DNS:Edit -> KHONG du quyen o day.)${NC}"
+    echo
+    read -r -p "Nhap Cloudflare API Token [0=thoat]: " cf_token
     [[ -z "${cf_token}" || "${cf_token}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
 
     # Verify token
@@ -85,7 +108,9 @@ _enable() {
     if ! echo "${create_resp}" | jq -e '.success == true' >/dev/null 2>&1; then
         clear
         printf "%s\n" "${RED}Token khong co quyen tao IP Access Rule cho zone nay.${NC}"
-        printf "%s\n" "${RED}Vui long tao token voi quyen: Zone > Firewall Services > Edit.${NC}"
+        printf "%s\n" "${RED}Token phai co quyen: Zone > Zone > Read VA Zone > Firewall Services > Edit.${NC}"
+        cf_err=$(echo "${create_resp}" | jq -r '.errors[0].message // empty' 2>/dev/null)
+        [ -n "${cf_err}" ] && printf "%s\n" "${RED}Cloudflare bao: ${cf_err}${NC}"
         return
     fi
     # Xoa rule test
