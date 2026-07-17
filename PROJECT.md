@@ -218,7 +218,25 @@ Verify sau reboot — tất cả PASS:
 - [ ] (Tuỳ chọn) Theo dõi ondrej/php PPA hỗ trợ 26.04 để bỏ nhãn experimental
 - [ ] (Khuyến nghị) Tắt SSH password authentication trên server test (đã có key)
 
-## 13. Rủi ro đã biết / lưu ý
+## 13. Tính năng bổ sung (feature-add phase, 17/07/2026)
+
+Sau khi bản rebuild cài chạy ổn, bổ sung 5 tính năng — tất cả đã test end-to-end trên LXC (feature 3/4/5 dùng creds thật) và merge vào `main`.
+
+| # | Tính năng | Menu | Chi tiết |
+|---|---|---|---|
+| 1 | HTTP/3 (QUIC) per-domain | Domain → 13 | Bật/tắt HTTP/3 cho từng website. `reuseport` neo 1 lần ở default_server, mỗi domain thêm `listen 443 quic;` + `Alt-Svc`. Cần SSL trước. Installer mở UDP 443. |
+| 2 | Nginx VTS dashboard | Admin Tool → 7 | Dashboard traffic realtime tại `http://IP:ADMIN_PORT/vts_status`, sau auth_basic của admin port. |
+| 3 | Wildcard SSL Cloudflare | SSL → 6, 7 | Cấp `*.domain` qua acme.sh dns_cf (nhận CF_Token scoped hoặc Global Key), auto-renew. Menu 7 = kiểm tra hạn mọi cert. Vá bug CF_Key export lồng chuỗi có sẵn. |
+| 4 | Backup S3-compatible | Backup → 7 | AWS/Backblaze/MinIO/Wasabi/DigitalOcean/Other. Tạo remote thô `<tên>-s3` + alias `<tên>` trỏ vào bucket → dùng chung luồng backup/restore/auto-backup. |
+| 5 | Telegram control bot | Telegram Notify → 5 | 3 chế độ chọn lúc setup: `notify` (chỉ cảnh báo), `menu` (lệnh định sẵn), `shell` (thêm `/sh`). Whitelist `ALLOWED_CHAT_IDS`. Daemon systemd `hostvn-telegram-bot.service`. |
+
+**Kết quả test E2E (LXC 24.04):** HTTP/3 → nginx listen UDP 443 + Alt-Svc; VTS → dashboard HTTP 200; wildcard → cert Let's Encrypt SAN `*.test01.caominh.net`; S3 → ghi/list/xoá vào bucket thật qua alias; Telegram → bot thật xử lý lệnh, whitelist + 3 chế độ đúng.
+
+**Lưu ý bảo mật:** chế độ `shell` của bot cho phép chạy lệnh root qua Telegram — chỉ nên bật khi hiểu rõ rủi ro (token lộ = mất server); production nên dùng `menu`.
+
+**File mới:** `menu/controller/domain/http3`, `menu/controller/admin/vts_status`, `menu/controller/ssl/wildcard`, `menu/controller/ssl/check_expiry`, `menu/controller/backup/connect_s3`, `menu/controller/telegram/control_bot`, `menu/telegram_bot/bot.sh`.
+
+## 14. Rủi ro đã biết / lưu ý
 
 - **Ubuntu 26.04**: chưa có PPA ondrej → chỉ có PHP mặc định của distro; MariaDB repo có thể chưa có suite `resolute` → script tự fallback gói distro.
 - **PHP 5.6** đã bỏ khỏi danh sách; code xử lý 5.6 trong menu vẫn còn (vô hại) phòng người dùng cũ.
