@@ -549,3 +549,7 @@ telegram_disk_notify(){
 telegram_delete_notify(){
     . /var/hostvn/menu/controller/telegram/delete_notify
 }
+
+telegram_control_bot(){
+    . /var/hostvn/menu/controller/telegram/control_bot
+}
