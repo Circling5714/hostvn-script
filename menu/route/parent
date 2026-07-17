@@ -394,6 +394,10 @@ admin_tool_change_port(){
     . /var/hostvn/menu/controller/admin/change_port
 }
 
+admin_vts_status(){
+    . /var/hostvn/menu/controller/admin/vts_status
+}
+
 menu_vps_manage(){
     . /var/hostvn/menu/route/vps_manage
 }
