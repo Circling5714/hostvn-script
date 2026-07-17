@@ -1,0 +1,118 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Wildcard SSL (*.domain.com) BAT BUOC xac thuc qua DNS (khong dung HTTP-01 duoc).
+# Dung CloudFlare DNS API da cau hinh o menu "CloudFlare DNS API".
+
+CF_CONF="/var/hostvn/.cloudflare.conf"
+
+_check_prerequisite() {
+    if [ ! -d "/root/.acme.sh" ]; then
+        ALERT="${RED}Chua cai acme.sh. Vui long cau hinh CloudFlare DNS API truoc (menu 4).${NC}"
+        return
+    fi
+    # Chap nhan CF_Token (scoped, khuyen nghi) hoac CF_Key + CF_Email (Global API Key)
+    if [[ ! -f "${CF_CONF}" ]] || ! grep -qE "CF_Token|CF_Key" "${CF_CONF}"; then
+        ALERT="${RED}Chua cau hinh CloudFlare DNS API. Vui long vao menu 4 de cau hinh truoc.${NC}"
+        return
+    fi
+}
+
+_issue_wildcard() {
+    # Export dung gia tri CF (bo phan "KEY=" va dau nhay)
+    CF_Token=$(grep -w "CF_Token" "${CF_CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '"')
+    CF_Key=$(grep -w "CF_Key" "${CF_CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '"')
+    CF_Email=$(grep -w "CF_Email" "${CF_CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '"')
+    [ -n "${CF_Token}" ] && export CF_Token
+    [ -n "${CF_Key}" ] && export CF_Key
+    [ -n "${CF_Email}" ] && export CF_Email
+
+    clear
+    printf "%s\n" "${GREEN}Dang cap chung chi wildcard cho *.${domain} va ${domain} ...${NC}"
+
+    /root/.acme.sh/acme.sh --issue --dns dns_cf \
+        -d "${domain}" -d "*.${domain}" \
+        --server letsencrypt --force
+}
+
+_install_cert() {
+    if [ ! -d "${SSL_DIR}/${domain}" ]; then
+        mkdir -p "${SSL_DIR}/${domain}"
+    fi
+    rm -f "${SSL_DIR}/${domain}/key.pem" "${SSL_DIR}/${domain}/cert.pem"
+
+    /root/.acme.sh/acme.sh --install-cert -d "${domain}" \
+        --key-file "${SSL_DIR}/${domain}/key.pem" \
+        --fullchain-file "${SSL_DIR}/${domain}/cert.pem"
+}
+
+_edit_vhost() {
+    vhost="${VHOST_DIR}/${domain}.conf"
+    sed -i '/https.conf/d' "${vhost}"
+    sed -i "/listen 80;/a include ${NGINX_CONF_DIR}/extra/https.conf;" "${vhost}"
+    sed -i '/return 404;/d' "${vhost}"
+    sed -i '/error_page 404/d' "${vhost}"
+    sed -i '/ssl_certificate/d' "${vhost}"
+    sed -i '/ssl_certificate_key/d' "${vhost}"
+    sed -i "/listen 443/a ssl_certificate ${SSL_DIR}/${domain}/cert.pem;" "${vhost}"
+    sed -i "/listen 443/a ssl_certificate_key ${SSL_DIR}/${domain}/key.pem;" "${vhost}"
+}
+
+_run() {
+    _issue_wildcard
+
+    if [[ -s "${SSL_DIR}/${domain}/cert.pem" ]]; then
+        : # da co cert cu, se cai lai o duoi
+    fi
+
+    _install_cert
+
+    if [[ -f "${SSL_DIR}/${domain}/key.pem" && -f "${SSL_DIR}/${domain}/cert.pem" && -s "${SSL_DIR}/${domain}/cert.pem" ]]; then
+        _edit_vhost
+        sleep 1
+        if nginx -t 2>/dev/null; then
+            _restart_service
+            clear
+            printf "%s\n" "${GREEN}Cap wildcard SSL cho *.${domain} thanh cong.${NC}"
+            printf "%s\n" "${GREEN}Chung chi tu dong gia han qua acme.sh (dns_cf).${NC}"
+        else
+            nginx -t
+            printf "%s\n" "${RED}Cau hinh Nginx bi loi. Vui long kiem tra lai vhost.${NC}"
+        fi
+    else
+        clear
+        printf "%s\n" "${RED}Cap wildcard SSL that bai. Kiem tra lai CF API token va quyen DNS Edit cho zone.${NC}"
+    fi
+}
+
+ALERT=""
+domain=""
+
+_check_prerequisite
+
+if [ -n "${ALERT}" ]; then
+    clear
+    printf "%s\n" "${ALERT}"
+else
+    _select_domain
+    if [[ -z "${domain}" || -n "${ALERT}" ]]; then
+        clear
+        printf "%s\n" "${ALERT:-${RED}Ban da huy thao tac.${NC}}"
+    else
+        _run
+    fi
+fi
+
+ssl_le
