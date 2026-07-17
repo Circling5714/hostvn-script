@@ -26,6 +26,9 @@ do
     printf "${GREEN}%s${NC}\n" "5. Restart Firewall"
     printf "${GREEN}%s${NC}\n" "6. Disable Firewall"
     printf "${GREEN}%s${NC}\n" "7. Enable Firewall"
+    printf "${GREEN}%s${NC}\n" "8. Thong ke Fail2ban"
+    printf "${GREEN}%s${NC}\n" "9. Bat them jail (recidive/bot/limit-req)"
+    printf "${GREEN}%s${NC}\n" "10. Dong bo Fail2ban len Cloudflare WAF"
     #printf "${GREEN}%s${NC}\n" "8. Block country"
     printf "%s ============================%s\n" "${GREEN}" "${NC}"
     read -r -p " ${SELECT_OPTION} " CHOICE
@@ -119,11 +122,9 @@ EOF
             echo ""
             menu_firewall
             ;;
-#        8)
-#            clear
-#            block_country
-#            menu_firewall
-#            ;;
+        8) clear; firewall_f2b_stats ;;
+        9) clear; firewall_extra_jails ;;
+        10) clear; firewall_cf_waf ;;
         0) clear; menu_primary ;;
         *) clear; printf "%s\n"  "${RED}${WRONG_OPTION}${NC}";;
     esac

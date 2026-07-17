@@ -1,0 +1,62 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Thong ke Fail2ban: liet ke tung jail + so IP dang ban / tong ban / dang fail.
+
+clear
+
+if ! systemctl is-active --quiet fail2ban; then
+    printf "%s\n" "${RED}Fail2ban khong hoat dong.${NC}"
+    read -r -p "Nhan Enter de quay lai..." _
+    menu_firewall
+    return 2>/dev/null || exit
+fi
+
+jails=$(fail2ban-client status 2>/dev/null | grep "Jail list" | sed 's/.*Jail list:\s*//; s/,//g')
+
+printf "%s\n" "${GREEN}=======================================================================${NC}"
+printf "%-20s %-14s %-12s %s\n" "Jail" "Dang ban" "Tong ban" "Dang fail"
+printf "%s\n" "${GREEN}=======================================================================${NC}"
+
+total_banned_all=0
+for jail in ${jails}; do
+    st=$(fail2ban-client status "${jail}" 2>/dev/null)
+    cur_ban=$(echo "${st}"  | grep -i "Currently banned" | grep -oE '[0-9]+' | head -1)
+    tot_ban=$(echo "${st}"  | grep -i "Total banned"     | grep -oE '[0-9]+' | head -1)
+    cur_fail=$(echo "${st}" | grep -i "Currently failed"  | grep -oE '[0-9]+' | head -1)
+    cur_ban=${cur_ban:-0}; tot_ban=${tot_ban:-0}; cur_fail=${cur_fail:-0}
+    total_banned_all=$((total_banned_all + cur_ban))
+
+    if [ "${cur_ban}" -gt 0 ]; then color="${RED}"; else color="${GREEN}"; fi
+    printf "${color}%-20s %-14s %-12s %s${NC}\n" "${jail}" "${cur_ban}" "${tot_ban}" "${cur_fail}"
+done
+
+printf "%s\n" "${GREEN}=======================================================================${NC}"
+printf "%s\n" "${GREEN}Tong so IP dang bi ban tren tat ca jail: ${total_banned_all}${NC}"
+
+# Neu co IP dang bi ban, hien danh sach chi tiet
+if [ "${total_banned_all}" -gt 0 ]; then
+    echo
+    printf "%s\n" "${GREEN}--- Danh sach IP dang bi ban ---${NC}"
+    for jail in ${jails}; do
+        ips=$(fail2ban-client status "${jail}" 2>/dev/null | grep -i "Banned IP list" | sed 's/.*Banned IP list:\s*//')
+        [ -n "${ips}" ] && printf "%-20s %s\n" "${jail}:" "${ips}"
+    done
+fi
+
+echo
+read -r -p "Nhan Enter de quay lai..." _
+
+menu_firewall
