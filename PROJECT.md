@@ -183,17 +183,42 @@ wget https://circling5714.github.io/hostvn-script/install && bash install
 | `7221eab` | **Rebuild for Ubuntu 22.04/24.04/26.04 LTS** — toàn bộ thay đổi mục 6 (41 file, +370/−2205) |
 | `3cf51fa` | Trỏ link phân phối về Circling5714/hostvn-script, workflow main + auto-enablement, README |
 | `d229198` | Trigger deploy Pages sau khi bật Pages |
+| `bdbde52` | docs: PROJECT.md |
+| `c9a3ce8` | **fix: version parsing rỗng toàn bộ** — `grep -w "key="` không match khi giá trị bắt đầu bằng chữ/số → đổi sang `grep "^key="`; guard MARIADB_VERSION rỗng; fail-fast install_nginx (tìm ra ở test run 1) |
+| `72cee80` | **fix: nginx link fail thiếu brotli** — ngx_brotli master cần `libbrotli-dev` hệ thống; fail-fast sau make (test run 2) |
+| `ca42e23` | **fix: image tools sang gói Ubuntu** — optipng (URL fossies chết), jpegoptim (format tag đổi), pngquant (upstream chuyển Rust) (test run 2) |
 
-## 11. Trạng thái & việc tiếp theo
+## 11. Kết quả test thật trên Proxmox LXC (17/07/2026)
+
+Môi trường: Proxmox LXC 10.0.0.10, 4GB RAM / 2 cores, unprivileged. Lưu ý: template gốc là Ubuntu 24.10 lai sources noble → đã ép đồng bộ toàn bộ userland về **noble 24.04 thật** (pin 1001 + downgrade 239 gói) trước khi test. Test tự động hoá: cài trong tmux + daemon tự trả lời 5 prompt + monitor log từ xa.
+
+- **Run 1**: phát hiện bug version parsing (`c9a3ce8`) — mọi phiên bản rỗng, hỏng dây chuyền.
+- **Run 2**: xác nhận fix run 1 (menu PHP hiện đúng 8.4/8.3/8.2/7.4, MariaDB 11.8.8 + PHP 8.4.23 cài OK); phát hiện lỗi brotli (`72cee80`) và 3 lỗi image tools (`ca42e23`).
+- **Run 3**: **"Cai dat thanh cong"** — cài sạch từ đầu đến cuối, tự reboot.
+
+Verify sau reboot — tất cả PASS:
+
+| Hạng mục | Kết quả |
+|---|---|
+| Services | nginx / mariadb / php8.4-fpm / fail2ban đều `active` |
+| nginx | 1.30.4, `nginx -t` OK, đủ module: cache_purge 2.5.6, headers-more 0.40, vts 0.2.5, brotli, **HTTP/3** |
+| MariaDB | 11.8.8, login user admin OK |
+| PHP | 8.4.23 (PPA ondrej) |
+| Web | `http://localhost` → 200; admin port → 401 (auth basic đúng) |
+| Container guard | `innodb_use_native_aio = 0` được áp tự động; swap/sysctl bỏ qua đúng |
+| Khác | ufw active, php-fpm socket đúng quyền, menu `/usr/bin/hostvn` sẵn sàng, `.hostvn.conf` ghi đúng |
+
+## 12. Trạng thái & việc tiếp theo
 
 - [x] Phân tích + rebuild toàn bộ codebase
 - [x] Repo mới + GitHub Pages hoạt động, verify đủ file phân phối
 - [x] Hỗ trợ container (Proxmox LXC)
-- [ ] **Test cài đặt thật trên LXC Ubuntu 24.04** (phần rủi ro nhất: compile nginx, MariaDB start, PPA PHP) → snapshot trước khi cài, có lỗi thì gửi log để vá
+- [x] **Test cài đặt thật trên LXC (24.04): THÀNH CÔNG** — 3 vòng test, tìm và vá 5 bug
 - [ ] Test các tính năng menu chính sau cài: thêm domain, SSL Let's Encrypt, cache Redis/Memcached, backup Rclone
 - [ ] (Tuỳ chọn) Theo dõi ondrej/php PPA hỗ trợ 26.04 để bỏ nhãn experimental
+- [ ] (Khuyến nghị) Tắt SSH password authentication trên server test (đã có key)
 
-## 12. Rủi ro đã biết / lưu ý
+## 13. Rủi ro đã biết / lưu ý
 
 - **Ubuntu 26.04**: chưa có PPA ondrej → chỉ có PHP mặc định của distro; MariaDB repo có thể chưa có suite `resolute` → script tự fallback gói distro.
 - **PHP 5.6** đã bỏ khỏi danh sách; code xử lý 5.6 trong menu vẫn còn (vô hại) phòng người dùng cũ.
