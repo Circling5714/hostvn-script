@@ -3212,6 +3212,45 @@ maxretry = 5
 bantime  = 86400
 END
 
+    # Ghi log ra file de jail recidive theo doi duoc (mac dinh Ubuntu co the log vao journal)
+    if [ ! -f "/etc/fail2ban/fail2ban.local" ]; then
+        cat >>"/etc/fail2ban/fail2ban.local" <<END
+[Definition]
+logtarget = /var/log/fail2ban.log
+END
+    fi
+
+    # Jail recidive: ban dai han IP tai pham nhieu lan (theo doi /var/log/fail2ban.log)
+    cat >>"/etc/fail2ban/jail.d/recidive.local" <<END
+[recidive]
+enabled   = true
+logpath   = /var/log/fail2ban.log
+banaction = %(banaction_allports)s
+bantime   = 1w
+findtime  = 1d
+maxretry  = 5
+END
+
+    # Jail chong scan/bot tren Nginx
+    cat >>"/etc/fail2ban/jail.d/nginx-extra.local" <<END
+[nginx-limit-req]
+enabled  = true
+filter   = nginx-limit-req
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 10
+findtime = 60
+bantime  = 3600
+
+[nginx-botsearch]
+enabled  = true
+filter   = nginx-botsearch
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 2
+bantime  = 86400
+END
+
     systemctl start fail2ban
     systemctl enable fail2ban
 }
