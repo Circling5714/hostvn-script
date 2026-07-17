@@ -17,7 +17,7 @@ export NEEDRESTART_MODE=a
 RED='\033[0;31m'
 NC='\033[0m'
 
-OS_VER=$(grep -w "VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
+OS_VER=$(grep "^VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
 LIST_OS_VER_SUPPORT=('22.04' '24.04' '26.04')
 
 DIR=$(pwd)
