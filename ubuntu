@@ -6,25 +6,32 @@
 #                Author: Sanvv - HOSTVN Technical                    #
 #                  Website: https://hostvn.vn                        #
 #                                                                    #
+#          Rebuild for Ubuntu 22.04 / 24.04 / 26.04 LTS              #
 #              Please do not remove copyright. Thank!                #
 #  Please do not copy under any circumstance for commercial reason!  #
 ######################################################################
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
+RED='\033[0;31m'
+NC='\033[0m'
+
 OS_VER=$(grep -w "VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
-LIST_OS_VER_SUPPORT=('18.04' '20.04')
-rm -rf ubuntu
+LIST_OS_VER_SUPPORT=('22.04' '24.04' '26.04')
 
 DIR=$(pwd)
 
 # Set link
-SCRIPT_LINK="https://f97.github.io/hostvn"
+SCRIPT_LINK="${HOSTVN_SCRIPT_LINK:-https://f97.github.io/hostvn}"
+LOCAL_DIR="${HOSTVN_LOCAL_DIR}"
 
 welcome(){
     clear
     printf "========================================================\n"
     echo   "                   HOSTVN.VN Scripts                      "
     echo   "     Auto Install & Optimize LEMP Stack on Ubuntu         "
-    printf " Neu can ho tro vui long lien he %s\n" "kythuat@hostvn.net"
+    echo   "        Ho tro Ubuntu 22.04 / 24.04 / 26.04 LTS           "
     printf "========================================================\n"
     echo ""
     echo "Chuan bi cai dat..."
@@ -32,7 +39,7 @@ welcome(){
 }
 
 apt update -y
-apt upgrade -y
+apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y
 apt autoremove -y
 
 
@@ -40,18 +47,11 @@ apt autoremove -y
 # Prepare Install #
 ###################
 
-fixed_lock_frontend(){
-    killall apt apt-get
-    rm -rf /var/lib/apt/lists/lock
-    rm -rf /var/cache/apt/archives/*
-    rm -rf /var/lib/dpkg/lock-frontend
-}
-
 # Remove unnecessary services
 remove_old_service(){
-    apt-get -y remove mysql* mariadb* php* apache2* postfix* rsyslog* nginx* fail2ban
+    apt-get -y remove mysql* mariadb* php* apache2* postfix* nginx* fail2ban
     rm -rf /etc/nginx/nginx.conf /etc/nginx/alias /etc/nginx/rewrite /etc/nginx/ssl /etc/nginx/wordpress
-    rm -rf /etc/nginx/apps /etc/nginx/extra /etc/nginx/pagespeed /etc/nginx/redirect /etc/nginx/rocket-nginx
+    rm -rf /etc/nginx/apps /etc/nginx/extra /etc/nginx/redirect /etc/nginx/rocket-nginx
     rm -rf /etc/nginx/web_apps.conf
     rm -rf /etc/apache2
     rm -rf /etc/php
@@ -75,71 +75,36 @@ remove_old_service(){
     sed -i '/Disable port forwarding/d' /etc/ssh/sshd_config
     sed -i '/Disable network tunneling/d' /etc/ssh/sshd_config
     sed -i '/Force the connection/d' /etc/ssh/sshd_config
-
-    if [ -f "$DIR/hostvn" ]; then
-        rm -rf "$DIR"/hostvn
-    fi
-}
-
-set_dns_server(){
-    check_dns=$(grep -rnw "/etc/resolv.conf" -e "1.1.1.1")
-    if [[ -z $check_dns ]]; then
-        echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf > /dev/null
-    fi
-}
-
-create_source_list(){
-    if [ "${OS_VER}" == "18.04" ]; then
-        mv /etc/apt/sources.list /etc/apt/sources.list."$(date +%Y-%m-%d)"
-        cat >> "/etc/apt/sources.list" << EOsource_list
-deb http://archive.ubuntu.com/ubuntu/ bionic main restricted
-deb http://archive.ubuntu.com/ubuntu/ bionic-updates main restricted
-deb http://archive.ubuntu.com/ubuntu/ bionic universe
-deb http://archive.ubuntu.com/ubuntu/ bionic-updates universe
-deb http://archive.ubuntu.com/ubuntu/ bionic multiverse
-deb http://archive.ubuntu.com/ubuntu/ bionic-updates multiverse
-deb http://archive.ubuntu.com/ubuntu/ bionic-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu bionic-security main restricted
-deb http://security.ubuntu.com/ubuntu bionic-security universe
-deb http://security.ubuntu.com/ubuntu bionic-security multiverse
-EOsource_list
-
-        apt update -y
-    fi
-    if [ "${OS_VER}" == "20.04" ]; then
-        mv /etc/apt/sources.list /etc/apt/sources.list."$(date +%Y-%m-%d)"
-        cat >> "/etc/apt/sources.list" << EOsource_list
-deb http://archive.ubuntu.com/ubuntu/ focal main restricted
-deb http://archive.ubuntu.com/ubuntu/ focal-updates main restricted
-deb http://archive.ubuntu.com/ubuntu/ focal universe
-deb http://archive.ubuntu.com/ubuntu/ focal-updates universe
-deb http://archive.ubuntu.com/ubuntu/ focal-updates multiverse
-deb http://archive.ubuntu.com/ubuntu/ focal multiverse
-deb http://archive.ubuntu.com/ubuntu/ focal-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu focal-security main restricted
-deb http://security.ubuntu.com/ubuntu focal-security universe
-deb http://security.ubuntu.com/ubuntu focal-security multiverse
-EOsource_list
-
-        apt update -y
-    fi
 }
 
 install_requirement(){
+    # libaio-dev keo theo runtime libaio dung ten cho tung phien ban Ubuntu
+    # (libaio1 tren 22.04, libaio1t64 tren 24.04+)
+    # libpcre2-dev thay cho libpcre3/libpcre3-dev (da bi go khoi Ubuntu 24.04+)
+    # python3 thay cho python (da bi go tu Ubuntu 20.04+)
+    # libncurses-dev thay cho libncurses5/libncurses5-dev
     apt-get install build-essential gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev \
-        libperl4-corelibs-perl libwww-perl libaio1 libaio-dev gifsicle webp libde265-dev \
-        zlib1g zlib1g-dev libcap-dev cron bzip2 zip automake autoconf libtool cmake python libdb-dev libsasl2-dev \
-        libncurses5 libncurses5-dev libsystemd-dev bind9 dnsutils quota patch logrotate rsyslog libc6-dev libexpat1-dev \
+        libperl4-corelibs-perl libwww-perl libaio-dev gifsicle webp libde265-dev \
+        zlib1g zlib1g-dev libcap-dev cron bzip2 zip automake autoconf libtool cmake python3 libdb-dev libsasl2-dev \
+        libncurses-dev libsystemd-dev bind9 dnsutils quota patch logrotate rsyslog libc6-dev libexpat1-dev \
         libcrypt-openssl-rsa-perl libnuma-dev libnuma1 git dos2unix ipcalc unzip net-tools wget apache2-utils grc \
-        libjpeg-dev libpng-dev libtiff-dev libgif-dev libwebp-dev imagemagick libpcre3 libpcre3-dev uuid-dev \
-        gnupg2 ca-certificates lsb-release apache2-dev libxml2-dev libcurl4-openssl-dev liblmdb-dev libgeoip-dev pkgconf \
-        libpcre++-dev libyajl-dev apt-utils htop nano supervisor bc libmaxminddb-dev -y
+        libjpeg-dev libpng-dev libtiff-dev libgif-dev libwebp-dev imagemagick libpcre2-dev uuid-dev \
+        gnupg2 ca-certificates lsb-release libxml2-dev libcurl4-openssl-dev liblmdb-dev pkgconf \
+        libyajl-dev apt-utils htop nano supervisor bc libmaxminddb-dev psmisc -y
 
     service supervisor stop
     systemctl disable supervisor
 }
 
 create_swap(){
+    # Trong container (Proxmox LXC, Docker...) khong the swapon,
+    # swap phai duoc cau hinh tren host
+    if systemd-detect-virt --container >/dev/null 2>&1; then
+        echo "Phat hien moi truong container (LXC/Docker). Bo qua buoc tao swap."
+        echo "Vui long cau hinh swap cho container tren host (VD: Proxmox > Resources > Swap)."
+        return
+    fi
+
     swap="$(swapon -s)"
     if [[ -z "${swap}" ]]; then
         clear
@@ -180,39 +145,45 @@ create_swap(){
 }
 
 set_timezone(){
-    if [[ -f "/etc/localtime" && -f "/usr/share/zoneinfo/Asia/Ho_Chi_Minh" ]]; then
-        rm -f /etc/localtime
-        ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
-    else
-        timedatectl set-timezone Asia/Ho_Chi_Minh
-    fi
+    timedatectl set-timezone Asia/Ho_Chi_Minh || {
+        if [[ -f "/usr/share/zoneinfo/Asia/Ho_Chi_Minh" ]]; then
+            rm -f /etc/localtime
+            ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
+        fi
+    }
 }
 
 #########################
 #Dowload primary Script #
 #########################
 download_script(){
-    curl -sO "${SCRIPT_LINK}"/hostvn
-    dos2unix hostvn
-    chmod +x hostvn
-    bash hostvn
+    # Uu tien file trong repo da clone (cai local), fallback tai tu SCRIPT_LINK
+    if [[ -n "${LOCAL_DIR}" && -f "${LOCAL_DIR}/hostvn" ]]; then
+        cp -f "${LOCAL_DIR}/hostvn" "${DIR}/hostvn.run"
+    else
+        curl -so "${DIR}/hostvn.run" "${SCRIPT_LINK}/hostvn"
+    fi
+    dos2unix "${DIR}/hostvn.run"
+    chmod +x "${DIR}/hostvn.run"
+    HOSTVN_SCRIPT_LINK="${SCRIPT_LINK}" HOSTVN_LOCAL_DIR="${LOCAL_DIR}" bash "${DIR}/hostvn.run"
 }
 
 welcome
 if [[ " ${LIST_OS_VER_SUPPORT[*]} " == *" ${OS_VER} "* ]]; then
-    #fixed_lock_frontend
+    if [ "${OS_VER}" == "26.04" ]; then
+        printf "${RED}%s${NC}\n" "Luu y: Ubuntu 26.04 dang o che do thu nghiem (experimental)."
+        printf "${RED}%s${NC}\n" "PPA ondrej/php co the chua ho tro 26.04, khi do script se dung PHP mac dinh cua Ubuntu."
+        sleep 3
+    fi
     remove_old_service
-    #set_dns_server
-    # create_source_list
     install_requirement
     create_swap
     set_timezone
     download_script
 else
     clear
-    printf "${RED}%s${NC}" "Ban dang su dung phien ban ${OS} ${OS_VER}."
-    printf "${RED}%s${NC}" "Hien tai Scripts chi ho tro Ubuntu 18.04, 20.4 va Debian 10."
-    printf "${RED}%s${NC}" "Huy cai dat."
+    printf "${RED}%s${NC}\n" "Ban dang su dung phien ban Ubuntu ${OS_VER}."
+    printf "${RED}%s${NC}\n" "Hien tai Scripts chi ho tro Ubuntu 22.04, 24.04, 26.04."
+    printf "${RED}%s${NC}\n" "Huy cai dat."
     exit
 fi
-

@@ -105,7 +105,8 @@ _install_imav() {
         OS=$(grep -w "ID" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
         OS_VER=$(grep -w "VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
 
-        if [[ "${OS}" == "ubuntu" && "${OS_VER}" == "18.04" ]]; then
+        AV_OS_SUPPORT=('18.04' '20.04' '22.04' '24.04' '26.04')
+        if [[ "${OS}" == "ubuntu" && " ${AV_OS_SUPPORT[*]} " == *" ${OS_VER} "* ]]; then
             mkdir -p /etc/sysconfig/imunify360
             mkdir -p /usr/share/nginx/private/imav
             mkdir -p /var/hostvn/imav
@@ -128,7 +129,7 @@ END
             rm -rf imav-deploy.sh
         else
             clear
-            printf "%s\n" "${RED}imunify360 chi hoat dong tren Ubuntu 18.04."
+            printf "%s\n" "${RED}ImunifyAV chi ho tro Ubuntu 18.04/20.04/22.04/24.04/26.04."
         fi
     fi
 }

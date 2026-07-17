@@ -218,42 +218,6 @@ lemp_log(){
     . /var/hostvn/menu/route/lemp_log
 }
 
-lemp_ngx_pagespeed(){
-    . /var/hostvn/menu/route/lemp_ngx_pagespeed
-}
-
-ngx_pagespeed_on_off(){
-    . /var/hostvn/menu/controller/pagespeed/on_off
-}
-
-ngx_pagespeed_combine_js(){
-    . /var/hostvn/menu/controller/pagespeed/combine_js
-}
-
-ngx_pagespeed_combine_css(){
-    . /var/hostvn/menu/controller/pagespeed/combine_css
-}
-
-ngx_pagespeed_minify_js(){
-    . /var/hostvn/menu/controller/pagespeed/minify_js
-}
-
-ngx_pagespeed_minify_css(){
-    . /var/hostvn/menu/controller/pagespeed/minify_css
-}
-
-ngx_pagespeed_minify_html(){
-    . /var/hostvn/menu/controller/pagespeed/minify_html
-}
-
-ngx_pagespeed_compress_image(){
-    . /var/hostvn/menu/controller/pagespeed/compress_image
-}
-
-ngx_pagespeed_convert_img_to_webp(){
-    . /var/hostvn/menu/controller/pagespeed/convert_img_to_webp
-}
-
 lemp_domain_log(){
     . /var/hostvn/menu/controller/log/domain_log
 }

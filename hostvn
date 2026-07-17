@@ -12,7 +12,10 @@
 
 # shellcheck disable=SC2207
 
-apt update && apt upgrade -y
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
+apt update && apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y
 
 DIR=$(pwd)
 
@@ -20,25 +23,37 @@ DIR=$(pwd)
 RED='\033[0;31m'
 NC='\033[0m'
 
-SCRIPTS_VERSION="0.2.10"
-IPADDRESS=$(curl -s http://cyberpanel.sh/?ip)
+SCRIPTS_VERSION="1.0.0"
+IPADDRESS=$(curl -s4 --max-time 10 https://api.ipify.org || curl -s --max-time 10 http://cyberpanel.sh/?ip)
 DIR=$(pwd)
 BASH_DIR="/var/hostvn"
 GITHUB_RAW_LINK="https://raw.githubusercontent.com"
-SOURCE_LINK="https://f97.github.io/hostvn"
+SOURCE_LINK="${HOSTVN_SCRIPT_LINK:-https://f97.github.io/hostvn}"
+LOCAL_DIR="${HOSTVN_LOCAL_DIR}"
 FILE_INFO="${BASH_DIR}/.hostvn.conf"
 HOSTNAME=$(hostname)
 PHP2_RELEASE="no"
+OS_VER=$(grep -w "VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
+UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || grep -w "VERSION_CODENAME=" "/etc/os-release" | cut -f2 -d'=')
 
 # Copyright
 AUTHOR="HOSTVN.VN"
 AUTHOR_CONTACT="https://www.facebook.com/groups/hostvn.vn"
 
+# Doc gia tri tu file version: uu tien file local trong repo, fallback link online
+get_version_value() {
+    if [[ -n "${LOCAL_DIR}" && -f "${LOCAL_DIR}/version" ]]; then
+        grep -w "$1=" "${LOCAL_DIR}/version" | cut -f2 -d'='
+    else
+        curl -s "${SOURCE_LINK}"/version | grep -w "$1=" | cut -f2 -d'='
+    fi
+}
+
 # Service Version
-PHPMYADMIN_VERSION=$(curl -s ${SOURCE_LINK}/version | grep "phpmyadmin_version=" | cut -f2 -d'=')
-MARIADB_VERSION=$(curl -s ${SOURCE_LINK}/version | grep "mariadb_version=" | cut -f2 -d'=')
+PHPMYADMIN_VERSION=$(get_version_value "phpmyadmin_version")
+MARIADB_VERSION=$(get_version_value "mariadb_version")
 # shellcheck disable=SC2207
-PHP_LIST=($(curl -s https://f97.github.io/hostvn/version | grep "php_list=" | cut -f2 -d'='))
+PHP_LIST=($(get_version_value "php_list"))
 
 # Set Lang
 OPTION_CHANGE_SSH="Ban co muon thay doi port SSH khong ? "
@@ -274,56 +289,21 @@ check_duplicate_php() {
 ############################################
 # Install LEMP Stack
 ############################################
-#install_nginx() {
-#    apt-get install -y curl gnupg2 ca-certificates lsb-release
-#    apt-get install build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev -y
-#    apt-get install -y git build-essential libpcre3 libpcre3-dev libssl-dev libtool autoconf apache2-dev libxml2-dev \
-#        libcurl4-openssl-dev automake pkgconf -y
-#    apt autoremove -y
-#    # shellcheck disable=SC2006
-#    echo "deb http://nginx.org/packages/ubuntu $(lsb_release -cs) nginx" |
-#        tee /etc/apt/sources.list.d/nginx.list
-#    curl -fsSL https://nginx.org/keys/nginx_signing.key | apt-key add -
-#    apt-key fingerprint ABF5BD827BD9BF62
-#    apt-get -y update
-#    apt-get -y install nginx
-#
-#    systemctl start nginx
-#    systemctl enable nginx
-#}
-
-
 install_nginx(){
-    apt-get install build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev -y
+    # Build voi PCRE2 + OpenSSL 3 cua he thong (libpcre3/OpenSSL 1.1.1 da bi go khoi Ubuntu 24.04+)
+    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev unzip uuid-dev git -y
     apt autoremove -y
     MODULE_PATH="/usr/share/nginx_module"
     mkdir -p "${MODULE_PATH}"
-    NGINX_VERSION=$(curl -s ${SOURCE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
-    NPS_VERSION=1.14.33.1-RC1
-    ngx_cache_purge_version=$(curl -s ${SOURCE_LINK}/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
-    more_clear_headers_v=$(curl -s ${SOURCE_LINK}/version | grep "more_clear_headers_v=" | cut -f2 -d'=')
-    openssl_version=$(curl -s ${SOURCE_LINK}/version | grep "openssl_version=" | cut -f2 -d'=')
-    pcre_version=$(curl -s ${SOURCE_LINK}/version | grep "pcre_version=" | cut -f2 -d'=')
-    zlib_version=$(curl -s ${SOURCE_LINK}/version | grep "zlib_version=" | cut -f2 -d'=')
-    nginx_module_vts_v=$(curl -s ${SOURCE_LINK}/version | grep "nginx_module_vts_v=" | cut -f2 -d'=')
-
-    cd_dir "${MODULE_PATH}"
-
-    wget -O- https://github.com/apache/incubator-pagespeed-ngx/archive/v"${NPS_VERSION}".tar.gz | tar -xz
-    nps_dir=$(find . -name "*pagespeed-ngx-${NPS_VERSION}" -type d)
-    cd_dir "$nps_dir"
-    NPS_RELEASE_NUMBER=1.13.35.2-x64
-
-    psol_url=https://dl.google.com/dl/page-speed/psol/${NPS_RELEASE_NUMBER}.tar.gz
-    [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
-    wget -O- "${psol_url}" | tar -xz
+    NGINX_VERSION=$(get_version_value "nginx_version")
+    ngx_cache_purge_version=$(get_version_value "ngx_cache_purge_version")
+    more_clear_headers_v=$(get_version_value "more_clear_headers_v")
+    nginx_module_vts_v=$(get_version_value "nginx_module_vts_v")
 
     cd_dir "${MODULE_PATH}"
     wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
-    wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
-    wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
-    wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
-    wget -O- https://github.com/madler/zlib/releases/download/v"${zlib_version}"/zlib-"${zlib_version}".tar.gz | tar -xz
+    # Fork nginx-modules/ngx_cache_purge tuong thich nginx moi (FRiCKLE goc da ngung phat trien)
+    wget -O- https://github.com/nginx-modules/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
     wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
     wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
 
@@ -348,19 +328,15 @@ install_nginx(){
         "--with-http_gzip_static_module" \
         "--with-http_dav_module" \
         "--with-http_v2_module" \
-        "--with-pcre=../pcre-${pcre_version}" \
+        "--with-http_v3_module" \
         "--with-pcre-jit" \
-        "--with-zlib=../zlib-${zlib_version}" \
-        "--with-openssl=../openssl-OpenSSL_${openssl_version}" \
-        "--with-openssl-opt=no-nextprotoneg" \
         "--add-module=../ngx_cache_purge-${ngx_cache_purge_version}" \
-        "--add-module=../incubator-pagespeed-ngx-${NPS_VERSION}" \
         "--add-module=../headers-more-nginx-module-${more_clear_headers_v}" \
         "--add-module=../ngx_brotli" \
         "--add-module=../nginx-module-vts-${nginx_module_vts_v}" \
         "--with-cc-opt='-D FD_SETSIZE=32768'"
 
-    make && make install
+    make -j"$(nproc)" && make install
 
     if [[ -d "/usr/lib/nginx/modules" && ! -d "/etc/nginx/modules" ]]; then
         ln -s /usr/lib/nginx/modules /etc/nginx/modules
@@ -396,26 +372,41 @@ EOnginx_service
 }
 
 install_mariadb() {
-    apt-get install software-properties-common apt-transport-https -y
-#    apt-key adv --fetch-keys 'https://mariadb.org/mariadb_release_signing_key.asc' << EOF
-#
-#EOF
-#    add-apt-repository "deb [arch=amd64,arm64,ppc64el] http://sgp1.mirrors.digitalocean.com/mariadb/repo/${MARIADB_VERSION}/ubuntu $(lsb_release -cs) main" << EOF
-#
-#EOF
+    apt-get install software-properties-common apt-transport-https ca-certificates curl -y
 
-    wget https://downloads.mariadb.com/MariaDB/mariadb_repo_setup
-    echo "b7519209546e1656e5514c04b4dcffdd9b4123201bcd1875a361ad79eb943bbe mariadb_repo_setup" | sha256sum -c -
-    chmod +x mariadb_repo_setup
-    ./mariadb_repo_setup --mariadb-server-version="mariadb-${MARIADB_VERSION}"
+    # Kiem tra repo MariaDB co ho tro phien ban Ubuntu nay khong,
+    # neu chua co (VD: Ubuntu vua phat hanh) thi dung goi mariadb cua distro
+    if curl -sfI --max-time 15 "https://deb.mariadb.org/${MARIADB_VERSION}/ubuntu/dists/${UBUNTU_CODENAME}/Release" >/dev/null 2>&1; then
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL https://mariadb.org/mariadb_release_signing_key.pgp -o /etc/apt/keyrings/mariadb-keyring.pgp
+
+        cat > "/etc/apt/sources.list.d/mariadb.sources" << EOmariadb_sources
+# MariaDB ${MARIADB_VERSION} repository
+X-Repolib-Name: MariaDB
+Types: deb
+URIs: https://deb.mariadb.org/${MARIADB_VERSION}/ubuntu
+Suites: ${UBUNTU_CODENAME}
+Components: main main/debug
+Signed-By: /etc/apt/keyrings/mariadb-keyring.pgp
+EOmariadb_sources
+    else
+        printf "${RED}%s${NC}\n" "Repo MariaDB ${MARIADB_VERSION} chua ho tro Ubuntu ${OS_VER} (${UBUNTU_CODENAME})."
+        printf "${RED}%s${NC}\n" "Script se cai dat MariaDB tu kho goi cua Ubuntu."
+    fi
+
     apt-get update -y
     apt-get -y install mariadb-server mariadb-backup
 }
 
 install_php() {
-    add-apt-repository ppa:ondrej/php <<EOF
-
-EOF
+    # Chi them PPA ondrej/php neu PPA da ho tro phien ban Ubuntu nay
+    # (Ubuntu moi phat hanh co the chua duoc PPA ho tro -> dung PHP mac dinh cua distro)
+    if curl -sfI --max-time 15 "https://ppa.launchpadcontent.net/ondrej/php/ubuntu/dists/${UBUNTU_CODENAME}/Release" >/dev/null 2>&1; then
+        add-apt-repository -y ppa:ondrej/php
+    else
+        printf "${RED}%s${NC}\n" "PPA ondrej/php chua ho tro Ubuntu ${OS_VER} (${UBUNTU_CODENAME})."
+        printf "${RED}%s${NC}\n" "Script se dung PHP tu kho goi cua Ubuntu. Mot so phien ban PHP co the khong kha dung."
+    fi
 
     apt-get update -y
 
@@ -427,7 +418,8 @@ EOF
         php"${PHP_VERSION}"-xmlrpc php"${PHP_VERSION}"-tidy php"${PHP_VERSION}"-opcache php"${PHP_VERSION}"-cli \
         php"${PHP_VERSION}"-dev php"${PHP_VERSION}"-imagick php"${PHP_VERSION}"-sqlite3
 
-    if [ "${PHP_VERSION}" != "8.0" ]; then
+    # Tu PHP 8.0 tro len, json da tich hop san, khong con goi rieng
+    if [[ "${PHP_VERSION}" == 5.* || "${PHP_VERSION}" == 7.* ]]; then
         apt -y install php"${PHP_VERSION}"-json
     fi
 
@@ -471,7 +463,8 @@ install_php_2() {
         php"${PHP_VERSION_2}"-xmlrpc php"${PHP_VERSION_2}"-tidy php"${PHP_VERSION_2}"-opcache php"${PHP_VERSION_2}"-cli \
         php"${PHP_VERSION_2}"-dev php"${PHP_VERSION_2}"-imagick php"${PHP_VERSION_2}"-sqlite3
 
-    if [ "${PHP_VERSION_2}" != "8.0" ]; then
+    # Tu PHP 8.0 tro len, json da tich hop san, khong con goi rieng
+    if [[ "${PHP_VERSION_2}" == 5.* || "${PHP_VERSION_2}" == 7.* ]]; then
         apt -y install php"${PHP_VERSION_2}"-json
     fi
 
@@ -507,7 +500,7 @@ install_php_2() {
 
 install_phpmyadmin() {
     if [ "${PHP_VERSION}" == "5.6" ]; then
-        PHPMYADMIN_VERSION=$(curl -s ${SOURCE_LINK}/version | grep "phpmyadmin4_version=" | cut -f2 -d'=')
+        PHPMYADMIN_VERSION=$(get_version_value "phpmyadmin4_version")
     fi
 
     if [ "${PHP_VERSION}" != "5.6" ]; then
@@ -566,7 +559,11 @@ EOphpmyadmin_temp
     mysql -u root -p"${sql_root_pass}" < /opt/phpmyadmin.temp
     rm -f /opt/phpmyadmin.temp
 
-    curl -o phpmyadmin.sql "${SOURCE_LINK}"/phpmyadmin.sql
+    if [[ -n "${LOCAL_DIR}" && -f "${LOCAL_DIR}/phpmyadmin.sql" ]]; then
+        cp -f "${LOCAL_DIR}/phpmyadmin.sql" phpmyadmin.sql
+    else
+        curl -o phpmyadmin.sql "${SOURCE_LINK}"/phpmyadmin.sql
+    fi
     mysql -u root -p"${sql_root_pass}" phpmyadmin < phpmyadmin.sql
     rm -rf phpmyadmin.sql
 }
@@ -976,7 +973,7 @@ mariadb_calculation() {
 # Install Other Library
 ############################################
 install_optipng(){
-    optipng_version=$(curl -s ${SOURCE_LINK}/version | grep "optipng_version=" | cut -f2 -d'=')
+    optipng_version=$(get_version_value "optipng_version")
     cd_dir /opt
     wget -O- https://fossies.org/linux/privat/optipng-"${optipng_version}".tar.gz | tar -xz
     cd_dir optipng-"${optipng_version}"
@@ -988,7 +985,7 @@ install_optipng(){
 }
 
 install_jpegoptim(){
-    jpegoptim_version=$(curl -s ${SOURCE_LINK}/version | grep "jpegoptim_version=" | cut -f2 -d'=')
+    jpegoptim_version=$(get_version_value "jpegoptim_version")
     cd_dir /opt
     wget -O- https://github.com/tjko/jpegoptim/archive/refs/tags/"${jpegoptim_version}".tar.gz | tar -xz
     cd_dir jpegoptim-RELEASE."${jpegoptim_version}"
@@ -1031,7 +1028,6 @@ create_nginx_conf() {
     mkdir -p /etc/nginx/redirect
     mkdir -p /etc/nginx/php
     mkdir -p /etc/nginx/conf.d
-    mkdir -p /etc/nginx/pagespeed
     mkdir -p /usr/share/nginx/html/
     chown -R nginx. /usr/share/nginx/html/
     mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf."$(date +%Y-%m-%d)"
@@ -2056,7 +2052,8 @@ server {
 }
 
 server {
-    listen 443 ssl http2 default_server;
+    listen 443 ssl default_server;
+    http2 on;
     root /usr/share/nginx/html/;
     index index.html index.htm;
 
@@ -2465,7 +2462,7 @@ socket = /run/mysqld/mysqld.sock
 
 tmpdir=/tmp
 
-innodb=ON
+#innodb=ON
 #skip-federated
 #skip-pbxt
 #skip-pbxt_statistics
@@ -2616,23 +2613,28 @@ query_cache_strip_comments=0
 log_slow_filter =admin,filesort,filesort_on_disk,full_join,full_scan,query_cache,query_cache_miss,tmp_table,tmp_table_on_disk
 EOmy_cnf
 
+    # Trong container (Proxmox LXC...) io_uring/native AIO thuong bi seccomp chan
+    # khien MariaDB khong khoi dong duoc -> tat native AIO
+    if systemd-detect-virt --container >/dev/null 2>&1; then
+        sed -i '/# innodb settings/a innodb_use_native_aio = 0' /etc/mysql/my.cnf
+    fi
+
     sql_root_pass=$(gen_pass)
     sql_admin_pass=$(gen_pass)
 
     systemctl start mariadb
     systemctl enable mariadb
 
-    mysql_secure_installation <<EOF
-
-n
-y
-${sql_root_pass}
-${sql_root_pass}
-y
-y
-y
-y
-EOF
+    # Thay the mysql_secure_installation (prompt thay doi giua cac phien ban MariaDB).
+    # Root van dang nhap duoc qua unix_socket (khong can mat khau khi la user root he thong)
+    # dong thoi co mat khau cho cac cong cu quan tri.
+    mysql --user=root <<EOsecure_sql
+ALTER USER 'root'@'localhost' IDENTIFIED VIA unix_socket OR mysql_native_password USING PASSWORD('${sql_root_pass}');
+DELETE FROM mysql.global_priv WHERE User='';
+DROP DATABASE IF EXISTS test;
+DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+FLUSH PRIVILEGES;
+EOsecure_sql
 
     Q1="CREATE USER 'admin'@'localhost' IDENTIFIED BY '${sql_admin_pass}';"
     Q2="GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION;"
@@ -3237,7 +3239,12 @@ END
 add_menu() {
     cd_dir "${BASH_DIR}"
     rm -rf menu hostvn.conf ipaddress menu.tar.gz /usr/bin/hostvn
-    wget "${SOURCE_LINK}"/menu.tar.gz  > /dev/null
+    # Uu tien file trong repo da clone (cai local), fallback tai tu SOURCE_LINK
+    if [[ -n "${LOCAL_DIR}" && -f "${LOCAL_DIR}/menu.tar.gz" ]]; then
+        cp -f "${LOCAL_DIR}/menu.tar.gz" menu.tar.gz
+    else
+        wget "${SOURCE_LINK}"/menu.tar.gz  > /dev/null
+    fi
     tar -xvf menu.tar.gz && rm -rf menu.tar.gz  > /dev/null
     mkdir -p "${BASH_DIR}"/users
     mkdir -p /var/log/hostvn
@@ -3317,6 +3324,13 @@ EOF
 }
 
 kernel_tweak(){
+    # Trong container (Proxmox LXC, Docker...) sysctl kernel/net do host quan ly,
+    # ghi vao se bao loi Permission denied hang loat
+    if systemd-detect-virt --container >/dev/null 2>&1; then
+        printf "%s\n" "Phat hien moi truong container (LXC/Docker). Bo qua kernel tweak (sysctl do host quan ly)."
+        return
+    fi
+
     mv /etc/sysctl.conf /etc/sysctl.conf."$(date +%Y-%m-%d)"
     cat >> "/etc/sysctl.conf" << EOsysctl
 ###

@@ -26,7 +26,6 @@ _select_app(){
         "OpenCart"
         "PrestaShop"
         "Magento 2"
-        "Nextcloud"
     )
     select app_source in "${app_options[@]}"
     do
@@ -39,7 +38,6 @@ _select_app(){
             "OpenCart") APP="opencart"; break;;
             "PrestaShop") APP="prestashop"; break;;
             "Magento 2") APP="magento2"; break;;
-            "Nextcloud") APP="nextcloud"; break;;
             *) printf "%s\n" "${RED}${WRONG_SELECT}${NC}";;
         esac
     done

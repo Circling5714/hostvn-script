@@ -6,12 +6,16 @@
 #                Author: Sanvv - HOSTVN Technical                    #
 #                  Website: https://hostvn.vn                        #
 #                                                                    #
+#          Rebuild for Ubuntu 22.04 / 24.04 / 26.04 LTS              #
 #              Please do not remove copyright. Thank!                #
 #  Please do not copy under any circumstance for commercial reason!  #
 ######################################################################
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
 apt update -y
-apt upgrade -y
+apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y
 apt autoremove -y
 apt install dos2unix curl wget -y
 
@@ -20,13 +24,12 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 OS=$(grep -w "ID" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
-if [[ "${OS}" == "debian" ]]; then
-    OS="ubuntu"
-fi
-SCRIPT_LINK="https://f97.github.io/hostvn/"
-OS_LIST="centos ubuntu debian"
+# Link tai script online. Co the override bang bien moi truong HOSTVN_SCRIPT_LINK
+SCRIPT_LINK="${HOSTVN_SCRIPT_LINK:-https://f97.github.io/hostvn}"
+OS_LIST="ubuntu"
 RAM_TOTAL=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 LOW_RAM='400000'
+INSTALL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # Control Panel path
 CPANEL="/usr/local/cpanel/cpanel"
@@ -49,7 +52,7 @@ TINO="/opt/tinopanel"
 ROOT_ERR="Ban can dang nhap SSH voi user root."
 CANCEL_INSTALL="Huy cai dat..."
 RAM_NOT_ENOUGH="Canh bao: Dung luong RAM qua thap de cai Script. (it nhat 512MB)"
-WRONG_OS="Rat tiec he dieu hanh ban dang su dung khong duoc ho tro."
+WRONG_OS="Rat tiec he dieu hanh ban dang su dung khong duoc ho tro. Script chi ho tro Ubuntu 22.04, 24.04, 26.04."
 OTHER_CP_EXISTS="May chu cua ban da cai dat Control Panel khac. Vui long rebuild de cai dat Script."
 HOSTVN_EXISTS="May chu cua ban da cai dat HOSTVN Script. Vui long rebuild neu muon cai dat lai."
 
@@ -84,10 +87,15 @@ if [[ -f "/var/hostvn/.hostvn.conf" ]]; then
 fi
 
 if [[ " ${OS_LIST[*]} " == *" ${OS} "* ]]; then
-    curl -sO "${SCRIPT_LINK}"/"${OS}"
-    dos2unix "${OS}"
-    chmod +x "${OS}"
-    bash "${OS}"
+    # Uu tien file trong repo da clone (cai local), fallback tai tu SCRIPT_LINK
+    if [ -f "${INSTALL_DIR}/${OS}" ]; then
+        cp -f "${INSTALL_DIR}/${OS}" "./${OS}.run"
+    else
+        curl -so "./${OS}.run" "${SCRIPT_LINK}/${OS}"
+    fi
+    dos2unix "./${OS}.run"
+    chmod +x "./${OS}.run"
+    HOSTVN_SCRIPT_LINK="${SCRIPT_LINK}" HOSTVN_LOCAL_DIR="${INSTALL_DIR}" bash "./${OS}.run"
 else
     printf "${RED}%s${NC}\n" "${WRONG_OS}"
     printf "${RED}%s${NC}\n" "${CANCEL_INSTALL}"

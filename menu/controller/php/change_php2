@@ -29,7 +29,7 @@ _confirm(){
 }
 
 _set_var(){
-    MODULE_LINK="${HOMEPAGE_LINK}/modules"
+    MODULE_LINK="https://pecl.php.net/get"
     #https://www.howtoforge.com/tutorial/linux-grep-command/
     #https://stackoverflow.com/a/6284370
     IG_BINARY_VERSION=$(curl -s "${UPDATE_LINK}"/version | grep -w "igbinary_version" | cut -f2 -d'=')
@@ -85,13 +85,8 @@ _select_php_ver(){
 }
 
 _remove_old_php(){
-    apt -y purge php"${PHP2_VERSION_OLD}" php"${PHP2_VERSION_OLD}"-fpm php"${PHP2_VERSION_OLD}"-ldap php"${PHP2_VERSION_OLD}"-zip \
-        php"${PHP2_VERSION_OLD}"-cli php"${PHP2_VERSION_OLD}"-mysql php"${PHP2_VERSION_OLD}"-gd php"${PHP2_VERSION_OLD}"-xml \
-        php"${PHP2_VERSION_OLD}"-mbstring php"${PHP2_VERSION_OLD}"-common php"${PHP2_VERSION_OLD}"-soap php"${PHP2_VERSION_OLD}"-json \
-        php"${PHP2_VERSION_OLD}"-curl php"${PHP2_VERSION_OLD}"-bcmath php"${PHP2_VERSION_OLD}"-snmp php"${PHP2_VERSION_OLD}"-pspell \
-        php"${PHP2_VERSION_OLD}"-gmp php"${PHP2_VERSION_OLD}"-intl php"${PHP2_VERSION_OLD}"-imap php"${PHP2_VERSION_OLD}"-enchant \
-        php"${PHP2_VERSION_OLD}"-xmlrpc php"${PHP2_VERSION_OLD}"-tidy php"${PHP2_VERSION_OLD}"-opcache php"${PHP2_VERSION_OLD}"-cli \
-        php"${PHP2_VERSION_OLD}"-dev php"${PHP2_VERSION_OLD}"-imagick php"${PHP2_VERSION_OLD}"-sqlite3
+    # Dung glob de khong bi loi khi mot goi le (VD: php8.x-json) khong ton tai trong archive
+    apt -y purge "php${PHP2_VERSION_OLD}" "php${PHP2_VERSION_OLD}-*"
     apt autoremove -y
 
     rm -rf /etc/php/"${PHP2_VERSION_OLD}"
@@ -117,7 +112,8 @@ _install_php(){
         php"${PHP2_VERSION_NEW}"-xmlrpc php"${PHP2_VERSION_NEW}"-tidy php"${PHP2_VERSION_NEW}"-opcache php"${PHP2_VERSION_NEW}"-cli \
         php"${PHP2_VERSION_NEW}"-dev php"${PHP2_VERSION_NEW}"-imagick php"${PHP2_VERSION_NEW}"-sqlite3
 
-        if [ "${PHP2_VERSION_NEW}" != "8.0" ]; then
+        # Tu PHP 8.0 tro len, json da tich hop san, khong con goi rieng
+        if [[ "${PHP2_VERSION_NEW}" == 5.* || "${PHP2_VERSION_NEW}" == 7.* ]]; then
             apt -y install php"${PHP2_VERSION_NEW}"-json
         fi
 

@@ -36,14 +36,10 @@ _install_redis(){
         ln /lib/systemd/system/redis-server.service /lib/systemd/system/redis.service
     fi
 
-    if [ ! -d "/etc/redis" ]; then
-        mkdir -p /etc/redis
-    fi
-
+    # Goi redis-server cua Ubuntu da kem san /etc/redis/redis.conf,
+    # neu thieu thi cai lai file cau hinh mac dinh cua goi
     if [ ! -f "/etc/redis/redis.conf" ]; then
-        VERSION_ID=$(grep -w "VERSION_ID" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"'  | cut -f1 -d'.')
-        wget "${HOMEPAGE_LINK}"/ubuntu/redis"${VERSION_ID}".conf
-        mv redis"${VERSION_ID}".conf /etc/redis/redis.conf
+        apt-get install --reinstall -o Dpkg::Options::="--force-confmiss" redis-server -y
     fi
 
     sed -i "s|# maxmemory <bytes>|maxmemory ${MAX_MEMORY}mb|g" /etc/redis/redis.conf

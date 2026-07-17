@@ -21,7 +21,6 @@ while [ "${CHOICE}" != "0" ]; do
     printf "${GREEN}%s${NC}\n" "2. PHP"
     printf "${GREEN}%s${NC}\n" "3. Database"
     printf "${GREEN}%s${NC}\n" "4. Log"
-    printf "${GREEN}%s${NC}\n" "5. Ngx_pagespeed"
     printf "${GREEN}%s${NC}\n" "==================="
     read -r -p " ${SELECT_OPTION} " CHOICE
     if [ -z "${CHOICE}" ]; then
@@ -44,10 +43,6 @@ while [ "${CHOICE}" != "0" ]; do
     4)
         clear
         lemp_log
-        ;;
-    5)
-        clear
-        lemp_ngx_pagespeed
         ;;
     0)
         clear
