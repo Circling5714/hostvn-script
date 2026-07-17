@@ -1,0 +1,267 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+#
+# Bat che do Cloudflare Tunnel: moi website duoc phuc vu qua tunnel,
+# VPS an IP hoan toan (khong mo 80/443). Dinh tuyen tu dong dong bo len
+# Cloudflare khi them website.
+#
+# ==================== QUYEN API TOKEN CAN THIET ====================
+# Token can cac quyen (tao tai Cloudflare > My Profile > API Tokens):
+#   - Account > Cloudflare Tunnel        > Edit   (tao tunnel)
+#   - Account > Cloudflare One Connectors > Edit   (cau hinh ingress)
+#   - Zone    > DNS                       > Edit   (tao ban ghi CNAME)
+# Nen chon Zone Resources = All zones hoac cac zone se dung.
+# (Neu muon dong bo ca fail2ban -> WAF, them Zone > Firewall Services > Edit)
+# ==================================================================
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+CONF="/var/hostvn/.cf_tunnel.conf"
+API="https://api.cloudflare.com/client/v4"
+REAL_IP_CONF="/etc/nginx/extra/cloudflare.conf"
+TUNNEL_HELPER="/var/hostvn/menu/tunnel/cf_tunnel.sh"
+
+_install_cloudflared() {
+    if command -v cloudflared >/dev/null 2>&1; then return 0; fi
+    printf "%s\n" "${GREEN}Dang cai cloudflared...${NC}"
+    mkdir -p --mode=0755 /usr/share/keyrings
+    curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg 2>/dev/null
+    echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" \
+        > /etc/apt/sources.list.d/cloudflared.list
+    apt-get update -y >/dev/null 2>&1
+    apt-get install -y cloudflared >/dev/null 2>&1
+    command -v cloudflared >/dev/null 2>&1
+}
+
+_config_real_ip() {
+    # Trong tunnel mode, traffic den tu cloudflared (127.0.0.1); IP that o CF-Connecting-IP.
+    # Cau hinh nay giup nginx log dung IP that -> fail2ban ban dung IP, khong ban localhost.
+    cat > "${REAL_IP_CONF}" <<EOF
+# Cloudflare Tunnel: nhan dien IP that cua user phia sau Cloudflare
+real_ip_header CF-Connecting-IP;
+real_ip_recursive on;
+set_real_ip_from 127.0.0.1;
+set_real_ip_from ::1;
+EOF
+}
+
+_fail2ban_safety() {
+    # Dam bao khong bao gio ban chinh localhost du real_ip co van de
+    if [ -f /etc/fail2ban/jail.d/defaults.conf ] && ! grep -q "ignoreip.*127.0.0.1" /etc/fail2ban/jail.d/defaults.conf; then
+        sed -i '/^\[DEFAULT\]/a ignoreip = 127.0.0.1/8 ::1' /etc/fail2ban/jail.d/defaults.conf
+    fi
+    systemctl restart fail2ban >/dev/null 2>&1
+}
+
+_close_inbound_web() {
+    # Moi web qua tunnel (outbound) nen khong can mo 80/443 vao VPS
+    if command -v ufw >/dev/null 2>&1; then
+        ufw delete allow http >/dev/null 2>&1
+        ufw delete allow https >/dev/null 2>&1
+        ufw delete allow 443/udp >/dev/null 2>&1
+    fi
+}
+
+_sync_existing_domains() {
+    if [ -d "${USER_DIR}" ] && [ "$(ls -A "${USER_DIR}" 2>/dev/null)" ]; then
+        printf "%s\n" "${GREEN}Dang dong bo dinh tuyen cac website hien co...${NC}"
+        for entry in "${USER_DIR}"/.*.conf; do
+            [ -f "${entry}" ] || continue
+            d=$(basename "${entry}"); d=${d#.}; d=${d%.conf}
+            [ "${d}" == '*' ] && continue
+            bash "${TUNNEL_HELPER}" add-dns "${d}" >/dev/null 2>&1 && printf "  - %s\n" "${d}"
+        done
+    fi
+}
+
+_enable() {
+    if ! command -v jq >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1; apt-get install -y jq >/dev/null 2>&1
+    fi
+
+    clear
+    printf "%s\n" "${GREEN}=== Bat che do Cloudflare Tunnel ===${NC}"
+    printf "%s\n" "Token can quyen: Account>Cloudflare Tunnel:Edit, Account>Cloudflare One Connectors:Edit, Zone>DNS:Edit"
+    echo
+    read -r -p "Nhap Cloudflare API Token [0=thoat]: " api_token
+    [[ -z "${api_token}" || "${api_token}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
+
+    if ! curl -s --max-time 15 "${API}/user/tokens/verify" -H "Authorization: Bearer ${api_token}" \
+        | jq -e '.success == true' >/dev/null 2>&1; then
+        clear; printf "%s\n" "${RED}Token khong hop le.${NC}"; return
+    fi
+
+    # Lay account id: thu /accounts, neu khong duoc thi lay tu zone
+    account_id=$(curl -s --max-time 15 "${API}/accounts" -H "Authorization: Bearer ${api_token}" | jq -r '.result[0].id // empty' 2>/dev/null)
+    if [ -z "${account_id}" ]; then
+        read -r -p "Nhap 1 domain nam tren Cloudflare (de xac dinh account) [0=thoat]: " probe_domain
+        [[ -z "${probe_domain}" || "${probe_domain}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
+        account_id=$(curl -s --max-time 15 "${API}/zones?name=${probe_domain}" -H "Authorization: Bearer ${api_token}" | jq -r '.result[0].account.id // empty' 2>/dev/null)
+    fi
+    if [ -z "${account_id}" ]; then
+        clear; printf "%s\n" "${RED}Khong lay duoc Account ID. Token co quyen Account khong?${NC}"; return
+    fi
+
+    if ! _install_cloudflared; then
+        clear; printf "%s\n" "${RED}Cai cloudflared that bai.${NC}"; return
+    fi
+
+    # Tao tunnel remotely-managed
+    printf "%s\n" "${GREEN}Dang tao Cloudflare Tunnel...${NC}"
+    tunnel_name="hostvn-$(hostname)-$(date +%s)"
+    create_resp=$(curl -s --max-time 20 -X POST "${API}/accounts/${account_id}/cfd_tunnel" \
+        -H "Authorization: Bearer ${api_token}" -H "Content-Type: application/json" \
+        --data "{\"name\":\"${tunnel_name}\",\"config_src\":\"cloudflare\"}")
+    if ! echo "${create_resp}" | jq -e '.success == true' >/dev/null 2>&1; then
+        clear
+        printf "%s\n" "${RED}Tao tunnel that bai. Token co quyen Account>Cloudflare Tunnel:Edit khong?${NC}"
+        echo "${create_resp}" | jq -r '.errors[0].message // empty' 2>/dev/null
+        return
+    fi
+    tunnel_id=$(echo "${create_resp}" | jq -r '.result.id')
+    tunnel_token=$(echo "${create_resp}" | jq -r '.result.token')
+
+    # Ingress catch-all: moi hostname -> nginx local; nginx tu chon vhost theo Host header
+    curl -s --max-time 20 -X PUT "${API}/accounts/${account_id}/cfd_tunnel/${tunnel_id}/configurations" \
+        -H "Authorization: Bearer ${api_token}" -H "Content-Type: application/json" \
+        --data '{"config":{"ingress":[{"service":"http://localhost:80"}]}}' >/dev/null 2>&1
+
+    # Luu config
+    cat > "${CONF}" <<EOF
+CF_API_TOKEN="${api_token}"
+CF_ACCOUNT_ID="${account_id}"
+CF_TUNNEL_ID="${tunnel_id}"
+EOF
+    chmod 600 "${CONF}"
+
+    # Chay cloudflared bang tunnel token (systemd)
+    cloudflared service install "${tunnel_token}" >/dev/null 2>&1
+    systemctl enable cloudflared >/dev/null 2>&1
+    systemctl restart cloudflared >/dev/null 2>&1
+
+    # Cau hinh nginx nhan dien IP that + an toan fail2ban
+    _config_real_ip
+    _fail2ban_safety
+
+    # Luu network_mode
+    sed -i '/network_mode=/d' "${FILE_INFO}"
+    echo "network_mode=tunnel" >> "${FILE_INFO}"
+
+    # Dong bo cac website hien co
+    _sync_existing_domains
+
+    # Dong 80/443 (moi web qua tunnel)
+    _close_inbound_web
+
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx
+    sleep 2
+
+    clear
+    if systemctl is-active --quiet cloudflared; then
+        printf "%s\n" "${GREEN}Da bat Cloudflare Tunnel thanh cong.${NC}"
+        printf "%s\n" "${GREEN}Tunnel ID: ${tunnel_id}${NC}"
+        printf "%s\n" "${GREEN}- Website moi se tu dong tao DNS tro vao tunnel khi them domain.${NC}"
+        printf "%s\n" "${GREEN}- Nginx da nhan dien IP that cua user qua CF-Connecting-IP.${NC}"
+        echo
+        printf "%s\n" "${RED}LUU Y QUAN TRONG cho fail2ban:${NC}"
+        printf "%s\n" "${RED}Trong tunnel mode, traffic den tu localhost nen ban IP bang iptables${NC}"
+        printf "%s\n" "${RED}KHONG con hieu luc. Hay bat 'Dong bo Cloudflare WAF' (menu Firewall > 10)${NC}"
+        printf "%s\n" "${RED}de fail2ban chan IP tan cong ngay tai edge Cloudflare.${NC}"
+    else
+        printf "%s\n" "${RED}cloudflared khong chay duoc. Kiem tra: journalctl -u cloudflared${NC}"
+    fi
+}
+
+_disable() {
+    systemctl stop cloudflared >/dev/null 2>&1
+    systemctl disable cloudflared >/dev/null 2>&1
+    cloudflared service uninstall >/dev/null 2>&1
+    rm -f "${CONF}"
+    sed -i '/network_mode=/d' "${FILE_INFO}"
+    echo "network_mode=direct" >> "${FILE_INFO}"
+
+    # Khoi phuc real_ip cho che do direct (dai IP Cloudflare)
+    cat > "${REAL_IP_CONF}" <<'EOF'
+real_ip_header X-Forwarded-For;
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+EOF
+
+    # Mo lai 80/443
+    if command -v ufw >/dev/null 2>&1; then
+        ufw allow http >/dev/null 2>&1
+        ufw allow https >/dev/null 2>&1
+        ufw allow 443/udp >/dev/null 2>&1
+    fi
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx
+    clear
+    printf "%s\n" "${GREEN}Da tat Cloudflare Tunnel, tro ve che do Direct.${NC}"
+    printf "%s\n" "${RED}Luu y: cac website can tro DNS (A record) ve IP VPS va cap lai SSL.${NC}"
+}
+
+_status() {
+    clear
+    mode=$(grep "^network_mode=" "${FILE_INFO}" 2>/dev/null | cut -f2 -d'=')
+    printf "%s\n" "${GREEN}Che do mang: ${mode:-direct}${NC}"
+    if [ -f "${CONF}" ]; then
+        # shellcheck disable=SC1090
+        source "${CONF}"
+        printf "%s\n" "${GREEN}Tunnel ID: ${CF_TUNNEL_ID}${NC}"
+        printf "%s\n" "cloudflared: $(systemctl is-active cloudflared 2>/dev/null)"
+    fi
+}
+
+_select_action() {
+    clear
+    printf "%s\n" "Cloudflare Tunnel"
+    _status
+    echo
+    PS3="Nhap vao lua chon cua ban: "
+    options=("Bat che do Tunnel" "Tat che do Tunnel" "Xem trang thai" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "Bat che do Tunnel") action="enable"; break ;;
+        "Tat che do Tunnel") action="disable"; break ;;
+        "Xem trang thai") action="status"; break ;;
+        "Cancel") action="cancel"; break ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon khong chinh xac." ;;
+        esac
+    done
+}
+
+action=""
+_select_action
+
+case "${action}" in
+    enable) _enable ;;
+    disable) _disable ;;
+    status) _status ;;
+    *) clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}" ;;
+esac
+
+echo
+read -r -p "Nhan Enter de quay lai..." _
+menu_vps_manage
