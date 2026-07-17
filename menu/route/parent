@@ -66,6 +66,10 @@ domain_protect_dir(){
     . /var/hostvn/menu/controller/domain/protect_dir
 }
 
+domain_http3(){
+    . /var/hostvn/menu/controller/domain/http3
+}
+
 menu_ssl(){
     . /var/hostvn/menu/route/ssl
 }
@@ -388,6 +392,10 @@ update_redis_panel(){
 
 admin_tool_change_port(){
     . /var/hostvn/menu/controller/admin/change_port
+}
+
+admin_vts_status(){
+    . /var/hostvn/menu/controller/admin/vts_status
 }
 
 menu_vps_manage(){

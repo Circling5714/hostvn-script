@@ -1,0 +1,155 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Nginx duoc build voi --with-http_v3_module. HTTP/3 (QUIC) chay tren UDP 443.
+# Rang buoc quan trong: tham so "reuseport" chi duoc xuat hien DUNG MOT LAN
+# tren toan bo cau hinh -> dat lam "neo" o server block mac dinh (web_apps.conf),
+# moi domain chi them "listen 443 quic;" (khong reuseport).
+
+WEB_APPS_CONF="${NGINX_CONF_DIR}/web_apps.conf"
+
+_select_action() {
+    clear
+    printf "%s\n" "Quan ly HTTP/3 (QUIC) cho website"
+    printf "%s\n" "${GREEN}Luu y: Website phai duoc bat SSL truoc khi bat HTTP/3.${NC}"
+    PS3="Nhap vao lua chon cua ban [ 1 - 3 ]: "
+    options=("Bat HTTP/3" "Tat HTTP/3" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "Bat HTTP/3")
+            action="enable"
+            break
+            ;;
+        "Tat HTTP/3")
+            action="disable"
+            break
+            ;;
+        "Cancel")
+            action="cancel"
+            break
+            ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon cua ban khong chinh xac. Vui long chon lai." ;;
+        esac
+    done
+}
+
+# Dam bao neo reuseport ton tai o server block mac dinh (chi them 1 lan)
+_ensure_quic_anchor() {
+    if ! grep -q "quic reuseport" "${WEB_APPS_CONF}"; then
+        sed -i "/listen 443 ssl.*default_server/a\\    listen 443 quic reuseport;\n    listen [::]:443 quic reuseport;\n    http3 on;" "${WEB_APPS_CONF}"
+    fi
+}
+
+# Mo UDP 443 tren firewall de QUIC hoat dong
+_open_udp_443() {
+    if command -v ufw >/dev/null 2>&1; then
+        if ! ufw status | grep -q "443/udp"; then
+            ufw allow 443/udp >/dev/null 2>&1
+        fi
+    fi
+}
+
+_enable_http3() {
+    vhost="${VHOST_DIR}/${domain}.conf"
+
+    if [ ! -f "${vhost}" ]; then
+        notify="${RED}Khong tim thay cau hinh cua ${domain}.${NC}"
+        return
+    fi
+
+    # SSL phai duoc bat truoc (block 443 khong con "return 404;")
+    if grep -q "return 404;" "${vhost}"; then
+        notify="${RED}Website ${domain} chua bat SSL. Vui long cau hinh SSL truoc khi bat HTTP/3.${NC}"
+        return
+    fi
+
+    if grep -q "listen 443 quic;" "${vhost}"; then
+        notify="${GREEN}HTTP/3 da duoc bat cho ${domain} tu truoc.${NC}"
+        return
+    fi
+
+    _ensure_quic_anchor
+
+    # Them quic listener (khong reuseport) va header Alt-Svc vao block 443 ssl
+    sed -i "/listen 443 ssl/a\\    listen 443 quic;\n    listen [::]:443 quic;\n    add_header Alt-Svc 'h3=\":443\"; ma=86400' always;" "${vhost}"
+
+    _open_udp_443
+
+    if nginx -t 2>/dev/null; then
+        _restart_service
+        notify="${GREEN}Da bat HTTP/3 cho ${domain}. Mo port UDP 443 tren firewall dam may chu (Cloud) neu can.${NC}"
+    else
+        # Rollback neu cau hinh loi
+        sed -i "/listen 443 quic;/d;/listen \[::\]:443 quic;/d;/add_header Alt-Svc 'h3=\":443\"/d" "${vhost}"
+        nginx -t
+        notify="${RED}Cau hinh Nginx bi loi, da hoan tac HTTP/3 cho ${domain}.${NC}"
+    fi
+}
+
+_disable_http3() {
+    vhost="${VHOST_DIR}/${domain}.conf"
+
+    if [ ! -f "${vhost}" ]; then
+        notify="${RED}Khong tim thay cau hinh cua ${domain}.${NC}"
+        return
+    fi
+
+    if ! grep -q "listen 443 quic;" "${vhost}"; then
+        notify="${GREEN}HTTP/3 chua duoc bat cho ${domain}.${NC}"
+        return
+    fi
+
+    sed -i "/listen 443 quic;/d;/listen \[::\]:443 quic;/d;/add_header Alt-Svc 'h3=\":443\"/d" "${vhost}"
+
+    if nginx -t 2>/dev/null; then
+        _restart_service
+        notify="${GREEN}Da tat HTTP/3 cho ${domain}.${NC}"
+    else
+        nginx -t
+        notify="${RED}Cau hinh Nginx bi loi sau khi tat HTTP/3 cho ${domain}.${NC}"
+    fi
+}
+
+_run() {
+    if [ "${action}" == "enable" ]; then
+        _enable_http3
+    elif [ "${action}" == "disable" ]; then
+        _disable_http3
+    fi
+}
+
+action=""
+notify=""
+domain=""
+ALERT=""
+
+_select_action
+
+if [[ -z "${action}" || "${action}" == "cancel" ]]; then
+    clear
+    printf "${RED}%s${NC}\n" "${lang_cancel_action}"
+else
+    _select_domain
+    if [[ -z "${domain}" || -n "${ALERT}" ]]; then
+        clear
+        printf "%s\n" "${ALERT:-${RED}Ban da huy thao tac.${NC}}"
+    else
+        _run
+        clear
+        printf "%s\n" "${notify}"
+    fi
+fi
+
+menu_domain

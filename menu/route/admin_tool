@@ -25,6 +25,7 @@ do
     printf "%s4. Update Redis Admin%s\n" "${GREEN}" "${NC}"
     printf "%s5. ${admin_tool_password_reset}%s\n" "${GREEN}" "${NC}"
     printf "%s6. ${change_the_ssh_port}%s\n" "${GREEN}" "${NC}"
+    printf "%s7. Nginx Status Dashboard (VTS)%s\n" "${GREEN}" "${NC}"
     printf "%s=========================%s\n" "${GREEN}" "${NC}"
     read -r -p " ${SELECT_OPTION} " CHOICE
     if [ -z "${CHOICE}" ]
@@ -52,6 +53,7 @@ do
             menu_admin_tool
             ;;
         6) clear; admin_tool_change_port ;;
+        7) clear; admin_vts_status ;;
         0) clear; menu_primary ;;
         *) clear; printf "%s\n" "${RED}${WRONG_OPTION}${NC}";;
     esac
