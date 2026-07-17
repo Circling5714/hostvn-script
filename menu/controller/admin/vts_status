@@ -1,0 +1,100 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Nginx duoc build voi module nginx-module-vts.
+# Dashboard hien thi traffic/request/upstream theo tung server (realtime),
+# nam sau auth_basic cua admin port -> xem qua trinh duyet bang mat khau admin.
+
+NGINX_CONF="/etc/nginx/nginx.conf"
+WEB_APPS_CONF="${NGINX_CONF_DIR}/web_apps.conf"
+ADMIN_PORT=$(grep "^admin_port=" "${FILE_INFO}" | cut -f2 -d'=')
+SERVER_IP=$(grep -w "IPADDRESS" "/var/hostvn/ipaddress" | cut -f2 -d'=')
+
+_select_action() {
+    clear
+    printf "%s\n" "Nginx Status Dashboard (VTS)"
+    PS3="Nhap vao lua chon cua ban [ 1 - 3 ]: "
+    options=("Bat dashboard" "Tat dashboard" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "Bat dashboard") action="enable"; break ;;
+        "Tat dashboard") action="disable"; break ;;
+        "Cancel") action="cancel"; break ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon cua ban khong chinh xac. Vui long chon lai." ;;
+        esac
+    done
+}
+
+_enable_vts() {
+    # 1. Them zone vao http block cua nginx.conf (chi 1 lan)
+    if ! grep -q "vhost_traffic_status_zone" "${NGINX_CONF}"; then
+        sed -i "/map .*https_suffix/a\\    vhost_traffic_status_zone;" "${NGINX_CONF}"
+    fi
+
+    # 2. Them location /vts_status vao admin server block (truoc /nginx_status)
+    if ! grep -q "location /vts_status" "${WEB_APPS_CONF}"; then
+        cat > /tmp/_vts_loc <<'VTSLOC'
+    location /vts_status {
+        vhost_traffic_status_display;
+        vhost_traffic_status_display_format html;
+        access_log off;
+    }
+
+VTSLOC
+        awk '/location \/nginx_status \{/ && !done {while((getline l < "/tmp/_vts_loc")>0) print l; done=1} {print}' \
+            "${WEB_APPS_CONF}" > "${WEB_APPS_CONF}.new" && mv "${WEB_APPS_CONF}.new" "${WEB_APPS_CONF}"
+        rm -f /tmp/_vts_loc
+    fi
+
+    if nginx -t 2>/dev/null; then
+        _restart_service
+        clear
+        printf "%s\n" "${GREEN}Da bat Nginx Status Dashboard (VTS).${NC}"
+        printf "%s\n" "${GREEN}Truy cap: http://${SERVER_IP}:${ADMIN_PORT}/vts_status${NC}"
+        printf "%s\n" "${GREEN}Dang nhap bang user 'admin' va mat khau Admin Tool.${NC}"
+    else
+        nginx -t
+        printf "%s\n" "${RED}Cau hinh Nginx bi loi. Vui long kiem tra lai.${NC}"
+    fi
+}
+
+_disable_vts() {
+    sed -i "/vhost_traffic_status_zone;/d" "${NGINX_CONF}"
+    # Xoa nguyen block location /vts_status { ... }
+    sed -i "/location \/vts_status {/,/}/d" "${WEB_APPS_CONF}"
+
+    if nginx -t 2>/dev/null; then
+        _restart_service
+        clear
+        printf "%s\n" "${GREEN}Da tat Nginx Status Dashboard (VTS).${NC}"
+    else
+        nginx -t
+        printf "%s\n" "${RED}Cau hinh Nginx bi loi sau khi tat VTS.${NC}"
+    fi
+}
+
+action=""
+_select_action
+
+if [[ -z "${action}" || "${action}" == "cancel" ]]; then
+    clear
+    printf "${RED}%s${NC}\n" "${lang_cancel_action}"
+elif [ "${action}" == "enable" ]; then
+    _enable_vts
+else
+    _disable_vts
+fi
+
+menu_admin_tool
