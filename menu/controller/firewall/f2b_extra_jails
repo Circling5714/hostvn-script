@@ -1,0 +1,77 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Bat them cac jail Fail2ban tang cuong (idempotent, dung cho VPS da cai):
+# - recidive: ban dai han IP bi ban nhieu lan
+# - nginx-limit-req / nginx-botsearch: chong scan/bot tren Nginx
+
+clear
+printf "%s\n" "${GREEN}Dang bat cac jail tang cuong...${NC}"
+
+# Dam bao fail2ban ghi log ra file de recidive theo doi duoc
+if [ ! -f "/etc/fail2ban/fail2ban.local" ]; then
+    cat >>"/etc/fail2ban/fail2ban.local" <<END
+[Definition]
+logtarget = /var/log/fail2ban.log
+END
+fi
+
+if [ ! -f "/etc/fail2ban/jail.d/recidive.local" ]; then
+    cat >>"/etc/fail2ban/jail.d/recidive.local" <<END
+[recidive]
+enabled   = true
+logpath   = /var/log/fail2ban.log
+banaction = %(banaction_allports)s
+bantime   = 1w
+findtime  = 1d
+maxretry  = 5
+END
+fi
+
+if [ ! -f "/etc/fail2ban/jail.d/nginx-extra.local" ]; then
+    cat >>"/etc/fail2ban/jail.d/nginx-extra.local" <<END
+[nginx-limit-req]
+enabled  = true
+filter   = nginx-limit-req
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 10
+findtime = 60
+bantime  = 3600
+
+[nginx-botsearch]
+enabled  = true
+filter   = nginx-botsearch
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 2
+bantime  = 86400
+END
+fi
+
+systemctl restart fail2ban
+sleep 2
+
+clear
+if systemctl is-active --quiet fail2ban; then
+    printf "%s\n" "${GREEN}Da bat cac jail tang cuong. Danh sach jail dang chay:${NC}"
+    fail2ban-client status 2>/dev/null | grep "Jail list" | sed 's/.*Jail list:\s*//'
+else
+    printf "%s\n" "${RED}Fail2ban khong khoi dong duoc sau khi them jail. Kiem tra: journalctl -u fail2ban${NC}"
+fi
+echo
+read -r -p "Nhan Enter de quay lai..." _
+
+menu_firewall
