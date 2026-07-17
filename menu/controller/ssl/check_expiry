@@ -1,0 +1,62 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Liet ke tat ca chung chi SSL da cap + so ngay con lai truoc khi het han.
+
+clear
+printf "%s\n" "${GREEN}==================================================================${NC}"
+printf "%-34s %-14s %s\n" "Domain" "Het han" "Con lai"
+printf "%s\n" "${GREEN}==================================================================${NC}"
+
+found=0
+now_epoch=$(date +%s)
+
+for cert in "${SSL_DIR}"/*/cert.pem; do
+    [ -f "${cert}" ] || continue
+    found=1
+    d=$(basename "$(dirname "${cert}")")
+
+    end_date=$(openssl x509 -enddate -noout -in "${cert}" 2>/dev/null | cut -f2 -d'=')
+    if [ -z "${end_date}" ]; then
+        printf "%-34s %-14s %s\n" "${d}" "?" "${RED}khong doc duoc${NC}"
+        continue
+    fi
+
+    end_epoch=$(date -d "${end_date}" +%s 2>/dev/null)
+    days_left=$(( (end_epoch - now_epoch) / 86400 ))
+    end_fmt=$(date -d "${end_date}" +%Y-%m-%d 2>/dev/null)
+
+    if [ "${days_left}" -lt 0 ]; then
+        color="${RED}"; note="DA HET HAN"
+    elif [ "${days_left}" -lt 15 ]; then
+        color="${RED}"; note="${days_left} ngay"
+    elif [ "${days_left}" -lt 30 ]; then
+        color="${GREEN}"; note="${days_left} ngay"
+    else
+        color="${GREEN}"; note="${days_left} ngay"
+    fi
+
+    printf "%-34s %-14s ${color}%s${NC}\n" "${d}" "${end_fmt}" "${note}"
+done
+
+if [ "${found}" -eq 0 ]; then
+    printf "%s\n" "${RED}Chua co chung chi SSL nao duoc cap.${NC}"
+fi
+
+printf "%s\n" "${GREEN}==================================================================${NC}"
+echo
+read -r -p "Nhan Enter de quay lai menu..." _
+
+ssl_le

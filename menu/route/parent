@@ -102,6 +102,14 @@ force_renew_all_ssl(){
     . /var/hostvn/menu/controller/ssl/renew_all_ssl
 }
 
+ssl_le_wildcard(){
+    . /var/hostvn/menu/controller/ssl/wildcard
+}
+
+ssl_le_check_expiry(){
+    . /var/hostvn/menu/controller/ssl/check_expiry
+}
+
 menu_cache(){
     . /var/hostvn/menu/route/cache
 }
