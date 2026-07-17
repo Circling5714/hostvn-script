@@ -1,7 +1,8 @@
 #!/bin/bash
 
 printf "%s\n" "Dang update vui long doi...."
-script_version="0.2.10"
+script_version="1.0.0"
+UPDATE_LINK="${HOSTVN_SCRIPT_LINK:-https://f97.github.io/hostvn}"
 IPADDRESS=$(grep -w "IPADDRESS" "/var/hostvn/ipaddress" | cut -f2 -d'=')
 RAM_TOTAL=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 
@@ -251,7 +252,7 @@ mariadb_calculation() {
 # Update Menu
 cd /var/hostvn
 rm -rf menu
-wget https://f97.github.io/hostvn/menu.tar.gz
+wget "${UPDATE_LINK}"/menu.tar.gz
 tar -xvf menu.tar.gz &> /dev/null && rm -rf menu.tar.gz
 clear
 cd menu
@@ -383,7 +384,8 @@ server {
 }
 
 server {
-    listen 443 ssl http2 default_server;
+    listen 443 ssl default_server;
+    http2 on;
     root /usr/share/nginx/html/;
     index index.html index.htm;
 
@@ -605,42 +607,25 @@ for entry in .*.conf; do
     fi
 done
 
-UPDATE_LINK="https://f97.github.io/hostvn"
 MODULE_PATH="/usr/share/nginx_module"
 more_clear_headers_v=$(curl -s ${UPDATE_LINK}/version | grep "more_clear_headers_v=" | cut -f2 -d'=')
 
 if [[ ! -d "${MODULE_PATH}/headers-more-nginx-module-${more_clear_headers_v}" ]]; then
-    apt-get install build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev -y
+    # Build voi PCRE2 + OpenSSL 3 cua he thong (libpcre3/OpenSSL 1.1.1 da bi go khoi Ubuntu 24.04+)
+    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev unzip uuid-dev git -y
     service nginx stop
     mkdir -p "${MODULE_PATH}"
     NGINX_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
-    NPS_VERSION=1.14.33.1-RC1
     ngx_cache_purge_version=$(curl -s ${UPDATE_LINK}/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
-    ngx_cache_purge_version=$(curl -s ${UPDATE_LINK}/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
-    openssl_version=$(curl -s ${UPDATE_LINK}/version | grep "openssl_version=" | cut -f2 -d'=')
-    pcre_version=$(curl -s ${UPDATE_LINK}/version | grep "pcre_version=" | cut -f2 -d'=')
-    zlib_version=$(curl -s ${UPDATE_LINK}/version | grep "zlib_version=" | cut -f2 -d'=')
     nginx_module_vts_v=$(curl -s ${UPDATE_LINK}/version | grep "nginx_module_vts_v=" | cut -f2 -d'=')
 
     cd "${MODULE_PATH}" || exit
 
     rm -rf "${MODULE_PATH:?}"/*
 
-    wget -O- https://github.com/apache/incubator-pagespeed-ngx/archive/v"${NPS_VERSION}".tar.gz | tar -xz
-    nps_dir=$(find . -name "*pagespeed-ngx-${NPS_VERSION}" -type d)
-    cd "$nps_dir" || exit
-    NPS_RELEASE_NUMBER=1.13.35.2-x64
-
-    psol_url=https://dl.google.com/dl/page-speed/psol/${NPS_RELEASE_NUMBER}.tar.gz
-    [ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh PSOL_BINARY_URL)
-    wget -O- "${psol_url}" | tar -xz
-
-    cd "${MODULE_PATH}" || exit
     wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
-    wget -O- https://github.com/FRiCKLE/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
-    wget -O- https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_"${openssl_version}".tar.gz | tar -xz
-    wget -O- https://ftp.exim.org/pub/pcre/pcre-"${pcre_version}".tar.gz | tar -xz
-    wget -O- https://github.com/madler/zlib/releases/download/v"${zlib_version}"/zlib-"${zlib_version}".tar.gz | tar -xz
+    # Fork nginx-modules/ngx_cache_purge tuong thich nginx moi (FRiCKLE goc da ngung phat trien)
+    wget -O- https://github.com/nginx-modules/ngx_cache_purge/archive/refs/tags/"${ngx_cache_purge_version}".tar.gz | tar -xz
     wget -O- https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/v"${more_clear_headers_v}".tar.gz | tar -xz
     wget -O- https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v"${nginx_module_vts_v}".tar.gz | tar -xz
 
@@ -665,19 +650,15 @@ if [[ ! -d "${MODULE_PATH}/headers-more-nginx-module-${more_clear_headers_v}" ]]
         "--with-http_gzip_static_module" \
         "--with-http_dav_module" \
         "--with-http_v2_module" \
-        "--with-pcre=../pcre-${pcre_version}" \
+        "--with-http_v3_module" \
         "--with-pcre-jit" \
-        "--with-zlib=../zlib-${zlib_version}" \
-        "--with-openssl=../openssl-OpenSSL_${openssl_version}" \
-        "--with-openssl-opt=no-nextprotoneg" \
         "--add-module=../ngx_cache_purge-${ngx_cache_purge_version}" \
-        "--add-module=../incubator-pagespeed-ngx-${NPS_VERSION}" \
         "--add-module=../headers-more-nginx-module-${more_clear_headers_v}" \
         "--add-module=../ngx_brotli" \
         "--add-module=../nginx-module-vts-${nginx_module_vts_v}" \
         "--with-cc-opt='-D FD_SETSIZE=32768'"
 
-        make && make install
+        make -j"$(nproc)" && make install
         
         CPU_CORES=$(grep -c "processor" /proc/cpuinfo)
         MAX_CLIENT=$((CPU_CORES * 1024))
@@ -941,7 +922,7 @@ socket = /run/mysqld/mysqld.sock
 
 tmpdir=/tmp
 
-innodb=ON
+#innodb=ON
 #skip-federated
 #skip-pbxt
 #skip-pbxt_statistics

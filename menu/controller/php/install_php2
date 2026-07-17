@@ -15,7 +15,7 @@ source /var/hostvn/menu/helpers/function
 source /var/hostvn/menu/helpers/variable_php
 
 _set_var(){
-    MODULE_LINK="${HOMEPAGE_LINK}/modules"
+    MODULE_LINK="https://pecl.php.net/get"
     #https://www.howtoforge.com/tutorial/linux-grep-command/
     #https://stackoverflow.com/a/6284370
     IG_BINARY_VERSION=$(curl -s "${UPDATE_LINK}"/version | grep -w "igbinary_version" | cut -f2 -d'=')
@@ -85,7 +85,8 @@ _install_php(){
         php"${PHP2_VERSION}"-xmlrpc php"${PHP2_VERSION}"-tidy php"${PHP2_VERSION}"-opcache php"${PHP2_VERSION}"-cli \
         php"${PHP2_VERSION}"-dev php"${PHP2_VERSION}"-imagick php"${PHP2_VERSION}"-sqlite3
 
-        if [ "${PHP2_VERSION}" != "8.0" ]; then
+        # Tu PHP 8.0 tro len, json da tich hop san, khong con goi rieng
+        if [[ "${PHP2_VERSION}" == 5.* || "${PHP2_VERSION}" == 7.* ]]; then
             apt -y install php"${PHP2_VERSION}"-json
         fi
 
