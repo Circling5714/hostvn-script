@@ -135,6 +135,10 @@ _run() {
         _destroy_other
         if nginx -t; then
             _restart_service
+            # Che do Cloudflare Tunnel: xoa DNS cua domain khoi Cloudflare
+            if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+                bash /var/hostvn/menu/tunnel/cf_tunnel.sh del-dns "${domain}" >/dev/null 2>&1
+            fi
             clear
             printf "%s\n" "${GREEN}Xoa Domain thanh cong.${NC}"
         else

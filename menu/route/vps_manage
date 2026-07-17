@@ -28,6 +28,7 @@ while [ "${CHOICE}" != "0" ]; do
     #printf "%s9. Hoan thanh Convert du lieu tu VPSSIM %s\n" "${GREEN}" "${NC}"
     printf "%s9. Update VPS %s\n" "${GREEN}" "${NC}"
     printf "%s10. Create Swap %s\n" "${GREEN}" "${NC}"
+    printf "%s11. Cloudflare Tunnel (che do mang) %s\n" "${GREEN}" "${NC}"
     printf "%s=============================================%s\n" "${GREEN}" "${NC}"
     read -r -p " ${SELECT_OPTION} " CHOICE
 
@@ -96,6 +97,10 @@ while [ "${CHOICE}" != "0" ]; do
     10)
         clear
         vps_create_swap
+        ;;
+    11)
+        clear
+        vps_cloudflare_tunnel
         ;;
     0)
         clear
