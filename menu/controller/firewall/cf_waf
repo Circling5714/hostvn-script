@@ -1,0 +1,174 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Dong bo Fail2ban -> Cloudflare WAF: khi fail2ban ban 1 IP, IP do cung bi
+# chan tren Cloudflare (IP Access Rules muc zone). Can API token co quyen
+# "Zone > Firewall Services > Edit" cho zone tuong ung.
+
+CONF="/var/hostvn/.cf_waf.conf"
+ACTION_FILE="/etc/fail2ban/action.d/cloudflare-hostvn.conf"
+DEFAULTS="/etc/fail2ban/jail.d/defaults.conf"
+WRAPPER="/var/hostvn/menu/fail2ban/cf_waf.sh"
+
+_select_action() {
+    clear
+    printf "%s\n" "Dong bo Fail2ban len Cloudflare WAF"
+    if [ -f "${CONF}" ]; then
+        printf "%s\n" "${GREEN}Trang thai: DANG BAT (zone da cau hinh).${NC}"
+    else
+        printf "%s\n" "${RED}Trang thai: CHUA BAT.${NC}"
+    fi
+    echo
+    PS3="Nhap vao lua chon cua ban: "
+    options=("Bat / Cau hinh lai" "Tat dong bo" "Test ban/unban 1 IP" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "Bat / Cau hinh lai") action="enable"; break ;;
+        "Tat dong bo") action="disable"; break ;;
+        "Test ban/unban 1 IP") action="test"; break ;;
+        "Cancel") action="cancel"; break ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon khong chinh xac." ;;
+        esac
+    done
+}
+
+_enable() {
+    if ! command -v jq >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1; apt-get install -y jq >/dev/null 2>&1
+    fi
+
+    read -r -p "Nhap Cloudflare API Token (quyen Zone Firewall Services:Edit) [0=thoat]: " cf_token
+    [[ -z "${cf_token}" || "${cf_token}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
+
+    # Verify token
+    if ! curl -s --max-time 15 "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+        -H "Authorization: Bearer ${cf_token}" | jq -e '.success == true' >/dev/null 2>&1; then
+        clear; printf "%s\n" "${RED}Token khong hop le hoac het han.${NC}"; return
+    fi
+
+    read -r -p "Nhap domain nam tren Cloudflare (de xac dinh zone) [0=thoat]: " cf_domain
+    [[ -z "${cf_domain}" || "${cf_domain}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
+
+    # Resolve zone id (thu ca domain va domain cha)
+    zone_id=""
+    try="${cf_domain}"
+    while [ -n "${try}" ]; do
+        zone_id=$(curl -s --max-time 15 "https://api.cloudflare.com/client/v4/zones?name=${try}" \
+            -H "Authorization: Bearer ${cf_token}" | jq -r '.result[0].id // empty' 2>/dev/null)
+        [ -n "${zone_id}" ] && break
+        # bo 1 cap subdomain roi thu lai (vd a.b.example.com -> b.example.com -> example.com)
+        if [[ "${try}" == *.*.* ]]; then try="${try#*.}"; else break; fi
+    done
+
+    if [ -z "${zone_id}" ]; then
+        clear; printf "%s\n" "${RED}Khong tim thay zone cho '${cf_domain}'. Token co quyen zone nay khong?${NC}"; return
+    fi
+
+    # Kiem tra quyen tao IP Access Rule bang cach tao + xoa 1 rule test
+    test_ip="203.0.113.250"
+    api="https://api.cloudflare.com/client/v4/zones/${zone_id}/firewall/access_rules/rules"
+    create_resp=$(curl -s --max-time 15 -X POST "${api}" -H "Authorization: Bearer ${cf_token}" \
+        -H "Content-Type: application/json" \
+        --data "{\"mode\":\"block\",\"configuration\":{\"target\":\"ip\",\"value\":\"${test_ip}\"},\"notes\":\"fail2ban-hostvn-test\"}")
+    if ! echo "${create_resp}" | jq -e '.success == true' >/dev/null 2>&1; then
+        clear
+        printf "%s\n" "${RED}Token khong co quyen tao IP Access Rule cho zone nay.${NC}"
+        printf "%s\n" "${RED}Vui long tao token voi quyen: Zone > Firewall Services > Edit.${NC}"
+        return
+    fi
+    # Xoa rule test
+    test_id=$(echo "${create_resp}" | jq -r '.result.id')
+    curl -s --max-time 15 -X DELETE "${api}/${test_id}" -H "Authorization: Bearer ${cf_token}" >/dev/null 2>&1
+
+    # Ghi config
+    cat > "${CONF}" <<EOF
+CF_WAF_TOKEN="${cf_token}"
+CF_WAF_ZONE="${zone_id}"
+EOF
+    chmod 600 "${CONF}"
+
+    # Tao action.d cho fail2ban
+    cat > "${ACTION_FILE}" <<EOF
+# Dong bo ban/unban len Cloudflare WAF (IP Access Rules)
+[Definition]
+actionstart =
+actionstop =
+actioncheck =
+actionban = /bin/bash ${WRAPPER} ban <ip>
+actionunban = /bin/bash ${WRAPPER} unban <ip>
+EOF
+
+    chmod +x "${WRAPPER}"
+
+    # Gan action vao tat ca jail (them dong tiep noi vao action mac dinh)
+    if [ -f "${DEFAULTS}" ] && ! grep -q "cloudflare-hostvn" "${DEFAULTS}"; then
+        sed -i '/^action\s*=/a\             cloudflare-hostvn' "${DEFAULTS}"
+    fi
+
+    systemctl restart fail2ban
+    sleep 2
+    clear
+    if systemctl is-active --quiet fail2ban; then
+        printf "%s\n" "${GREEN}Da bat dong bo Fail2ban -> Cloudflare WAF (zone: ${zone_id}).${NC}"
+        printf "%s\n" "${GREEN}Tu gio moi IP bi fail2ban ban se bi chan tren Cloudflare.${NC}"
+    else
+        printf "%s\n" "${RED}Fail2ban khong khoi dong duoc. Kiem tra: journalctl -u fail2ban${NC}"
+    fi
+}
+
+_disable() {
+    [ -f "${DEFAULTS}" ] && sed -i '/cloudflare-hostvn/d' "${DEFAULTS}"
+    rm -f "${ACTION_FILE}" "${CONF}"
+    systemctl restart fail2ban
+    clear
+    printf "%s\n" "${GREEN}Da tat dong bo Cloudflare WAF.${NC}"
+}
+
+_test() {
+    if [ ! -f "${CONF}" ]; then
+        clear; printf "%s\n" "${RED}Chua bat dong bo. Vui long cau hinh truoc.${NC}"; return
+    fi
+    test_ip="203.0.113.251"
+    clear
+    printf "%s\n" "${GREEN}Test: ban IP ${test_ip} len Cloudflare...${NC}"
+    bash "${WRAPPER}" ban "${test_ip}"
+    sleep 2
+    # shellcheck disable=SC1090
+    source "${CONF}"
+    found=$(curl -s --max-time 15 -G "https://api.cloudflare.com/client/v4/zones/${CF_WAF_ZONE}/firewall/access_rules/rules" \
+        -H "Authorization: Bearer ${CF_WAF_TOKEN}" --data-urlencode "configuration.value=${test_ip}" \
+        | jq -r '.result[0].id // empty' 2>/dev/null)
+    if [ -n "${found}" ]; then
+        printf "%s\n" "${GREEN}OK: IP da xuat hien tren Cloudflare WAF. Dang go bo test...${NC}"
+        bash "${WRAPPER}" unban "${test_ip}"
+        printf "%s\n" "${GREEN}Da go IP test. Dong bo hoat dong tot.${NC}"
+    else
+        printf "%s\n" "${RED}Khong thay IP tren Cloudflare. Kiem tra lai token/quyen.${NC}"
+    fi
+}
+
+action=""
+_select_action
+
+case "${action}" in
+    enable) _enable ;;
+    disable) _disable ;;
+    test) _test ;;
+    *) clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}" ;;
+esac
+
+echo
+read -r -p "Nhan Enter de quay lai..." _
+menu_firewall

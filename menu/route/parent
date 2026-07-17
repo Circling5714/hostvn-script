@@ -238,6 +238,18 @@ menu_firewall(){
     . /var/hostvn/menu/route/firewall
 }
 
+firewall_f2b_stats(){
+    . /var/hostvn/menu/controller/firewall/f2b_stats
+}
+
+firewall_extra_jails(){
+    . /var/hostvn/menu/controller/firewall/f2b_extra_jails
+}
+
+firewall_cf_waf(){
+    . /var/hostvn/menu/controller/firewall/cf_waf
+}
+
 menu_permission(){
     . /var/hostvn/menu/route/permission
 }
