@@ -1103,6 +1103,9 @@ http {
     # Custom Variables
     map \$scheme \$https_suffix { default ''; https '-https'; }
 
+    # Nginx VTS - thu thap thong ke traffic theo tung server/upstream
+    vhost_traffic_status_zone;
+
     include /etc/nginx/extra/nginx_cache.conf;
     include /etc/nginx/extra/gzip.conf;
     include /etc/nginx/extra/brotli.conf;
@@ -2090,6 +2093,12 @@ server {
         allow 127.0.0.1;
         allow ${IPADDRESS};
         deny all;
+    }
+
+    location /vts_status {
+        vhost_traffic_status_display;
+        vhost_traffic_status_display_format html;
+        access_log off;
     }
 
     location /php_status {
