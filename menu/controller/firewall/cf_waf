@@ -33,7 +33,10 @@ source /var/hostvn/menu/helpers/function
 
 CONF="/var/hostvn/.cf_waf.conf"
 ACTION_FILE="/etc/fail2ban/action.d/cloudflare-hostvn.conf"
-DEFAULTS="/etc/fail2ban/jail.d/defaults.conf"
+# Fail2ban doc *.conf truoc roi moi den *.local, nen jail.local (installer tao)
+# ghi de moi thay doi o *.conf. Dat action o mot file .local trong jail.d de
+# duoc doc SAU CUNG -> chac chan co hieu luc.
+ATTACH_FILE="/etc/fail2ban/jail.d/zz-cloudflare.local"
 WRAPPER="/var/hostvn/menu/fail2ban/cf_waf.sh"
 
 _select_action() {
@@ -137,10 +140,13 @@ EOF
 
     chmod +x "${WRAPPER}"
 
-    # Gan action vao tat ca jail (them dong tiep noi vao action mac dinh)
-    if [ -f "${DEFAULTS}" ] && ! grep -q "cloudflare-hostvn" "${DEFAULTS}"; then
-        sed -i '/^action\s*=/a\             cloudflare-hostvn' "${DEFAULTS}"
-    fi
+    # Gan action cloudflare vao tat ca jail qua [DEFAULT] o file .local doc sau cung.
+    # Giu banaction mac dinh (%(action_)s) va them cloudflare-hostvn.
+    cat > "${ATTACH_FILE}" <<EOF
+[DEFAULT]
+action = %(action_)s
+         cloudflare-hostvn
+EOF
 
     systemctl restart fail2ban
     sleep 2
@@ -154,8 +160,7 @@ EOF
 }
 
 _disable() {
-    [ -f "${DEFAULTS}" ] && sed -i '/cloudflare-hostvn/d' "${DEFAULTS}"
-    rm -f "${ACTION_FILE}" "${CONF}"
+    rm -f "${ATTACH_FILE}" "${ACTION_FILE}" "${CONF}"
     systemctl restart fail2ban
     clear
     printf "%s\n" "${GREEN}Da tat dong bo Cloudflare WAF.${NC}"
