@@ -987,38 +987,20 @@ mariadb_calculation() {
 ############################################
 # Install Other Library
 ############################################
+# Cac cong cu nen anh dung goi cua Ubuntu thay vi build tu source:
+# - optipng: URL fossies.org da chet
+# - jpegoptim: format tag GitHub doi (khong con RELEASE.x)
+# - pngquant: upstream da chuyen sang Rust, khong con ./configure
 install_optipng(){
-    optipng_version=$(get_version_value "optipng_version")
-    cd_dir /opt
-    wget -O- https://fossies.org/linux/privat/optipng-"${optipng_version}".tar.gz | tar -xz
-    cd_dir optipng-"${optipng_version}"
-    ./configure
-    make
-    cp /opt/optipng-"${optipng_version}"/src/optipng/optipng /usr/bin/
-    cd_dir /opt
-    rm -rf /opt/optipng-"${optipng_version}"
+    apt-get install optipng -y
 }
 
 install_jpegoptim(){
-    jpegoptim_version=$(get_version_value "jpegoptim_version")
-    cd_dir /opt
-    wget -O- https://github.com/tjko/jpegoptim/archive/refs/tags/"${jpegoptim_version}".tar.gz | tar -xz
-    cd_dir jpegoptim-RELEASE."${jpegoptim_version}"
-    ./configure
-    make && make strip && make install
-    ln -s /usr/local/bin/jpegoptim /usr/bin/jpegoptim
-    cd_dir /opt
-    rm -rf /opt/jpegoptim-RELEASE."${jpegoptim_version}"
+    apt-get install jpegoptim -y
 }
 
 install_pngquant(){
-    cd_dir /opt
-    git clone --recursive https://github.com/kornelski/pngquant.git
-    cd_dir /opt/pngquant
-    ./configure
-    make && make install
-    cd_dir "${DIR}"
-    rm -rf /opt/pngquant
+    apt-get install pngquant -y
 }
 
 ############################################
