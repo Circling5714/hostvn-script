@@ -2,7 +2,7 @@
 
 printf "%s\n" "Dang update vui long doi...."
 script_version="1.0.0"
-UPDATE_LINK="${HOSTVN_SCRIPT_LINK:-https://f97.github.io/hostvn}"
+UPDATE_LINK="${HOSTVN_SCRIPT_LINK:-https://circling5714.github.io/hostvn-script}"
 IPADDRESS=$(grep -w "IPADDRESS" "/var/hostvn/ipaddress" | cut -f2 -d'=')
 RAM_TOTAL=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 

@@ -23,7 +23,7 @@ LIST_OS_VER_SUPPORT=('22.04' '24.04' '26.04')
 DIR=$(pwd)
 
 # Set link
-SCRIPT_LINK="${HOSTVN_SCRIPT_LINK:-https://f97.github.io/hostvn}"
+SCRIPT_LINK="${HOSTVN_SCRIPT_LINK:-https://circling5714.github.io/hostvn-script}"
 LOCAL_DIR="${HOSTVN_LOCAL_DIR}"
 
 welcome(){
