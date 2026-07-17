@@ -3324,6 +3324,7 @@ write_info() {
         echo "php2_version=${PHP_VERSION_2}"
         echo "webserver=nginx"
         echo "lang=vi"
+        echo "network_mode=direct"
     } >>"${FILE_INFO}"
 
     touch /etc/hostvn.lock
@@ -3716,6 +3717,9 @@ printf "Link Opcache Dashboard       : %s\n" "http://${IPADDRESS}:${RANDOM_ADMIN
 echo "User phpMyAdmin va Admin Tool: admin                                   "
 printf "Password Admin tool          : %s\n" "${ADMIN_TOOL_PWD}"
 printf "Password phpMyAdmin          : %s\n" "${sql_admin_pass}"
+printf "=========================================================================\n"
+printf "${RED}%s${NC}\n" "Muon an IP VPS, dua moi website qua Cloudflare Tunnel (khong mo 80/443)?"
+printf "${RED}%s${NC}\n" "Bat NGAY sau khi cai (khi chua them website): hostvn > Quan ly VPS > 11. Cloudflare Tunnel"
 printf "=========================================================================\n"
 
 sleep 3
