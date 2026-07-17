@@ -29,6 +29,7 @@ while [ "${CHOICE}" != "0" ]; do
     printf "%s10. ${lang_change_website_db_info}%s\n" "${GREEN}" "${NC}"
     printf "%s11. ${lang_change_sftp_pass}%s\n" "${GREEN}" "${NC}"
     printf "%s12. ${lang_protect_dir}%s\n" "${GREEN}" "${NC}"
+    printf "%s13. Bat/Tat HTTP/3 (QUIC)%s\n" "${GREEN}" "${NC}"
     printf "%s======================================%s\n" "${GREEN}" "${NC}"
     read -r -p " ${SELECT_OPTION} " CHOICE
     if [ -z "${CHOICE}" ]; then
@@ -83,6 +84,10 @@ while [ "${CHOICE}" != "0" ]; do
     12)
         clear
         domain_protect_dir
+        ;;
+    13)
+        clear
+        domain_http3
         ;;
     0)
         clear

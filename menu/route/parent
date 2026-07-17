@@ -66,6 +66,10 @@ domain_protect_dir(){
     . /var/hostvn/menu/controller/domain/protect_dir
 }
 
+domain_http3(){
+    . /var/hostvn/menu/controller/domain/http3
+}
+
 menu_ssl(){
     . /var/hostvn/menu/route/ssl
 }
