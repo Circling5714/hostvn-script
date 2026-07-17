@@ -103,7 +103,7 @@ _install_imav() {
         printf "%s\n" "${RED}Ban da cai dat ClamAV roi.${NC}"
     else
         OS=$(grep -w "ID" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
-        OS_VER=$(grep -w "VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
+        OS_VER=$(grep "^VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
 
         AV_OS_SUPPORT=('18.04' '20.04' '22.04' '24.04' '26.04')
         if [[ "${OS}" == "ubuntu" && " ${AV_OS_SUPPORT[*]} " == *" ${OS_VER} "* ]]; then

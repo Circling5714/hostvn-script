@@ -33,19 +33,20 @@ LOCAL_DIR="${HOSTVN_LOCAL_DIR}"
 FILE_INFO="${BASH_DIR}/.hostvn.conf"
 HOSTNAME=$(hostname)
 PHP2_RELEASE="no"
-OS_VER=$(grep -w "VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
-UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || grep -w "VERSION_CODENAME=" "/etc/os-release" | cut -f2 -d'=')
+OS_VER=$(grep "^VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
+UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || grep "^VERSION_CODENAME=" "/etc/os-release" | cut -f2 -d'=')
 
 # Copyright
 AUTHOR="HOSTVN.VN"
 AUTHOR_CONTACT="https://www.facebook.com/groups/hostvn.vn"
 
 # Doc gia tri tu file version: uu tien file local trong repo, fallback link online
+# Luu y: phai dung "^key=" — grep -w "key=" KHONG match khi gia tri bat dau bang chu/so
 get_version_value() {
     if [[ -n "${LOCAL_DIR}" && -f "${LOCAL_DIR}/version" ]]; then
-        grep -w "$1=" "${LOCAL_DIR}/version" | cut -f2 -d'='
+        grep "^$1=" "${LOCAL_DIR}/version" | cut -f2 -d'='
     else
-        curl -s "${SOURCE_LINK}"/version | grep -w "$1=" | cut -f2 -d'='
+        curl -s "${SOURCE_LINK}"/version | grep "^$1=" | cut -f2 -d'='
     fi
 }
 
@@ -300,6 +301,13 @@ install_nginx(){
     more_clear_headers_v=$(get_version_value "more_clear_headers_v")
     nginx_module_vts_v=$(get_version_value "nginx_module_vts_v")
 
+    # Fail fast: thieu phien ban thi toan bo cai dat se hong day chuyen
+    if [[ -z "${NGINX_VERSION}" || -z "${ngx_cache_purge_version}" || -z "${more_clear_headers_v}" || -z "${nginx_module_vts_v}" ]]; then
+        printf "${RED}%s${NC}\n" "Khong doc duoc phien ban Nginx/module tu file version (local: ${LOCAL_DIR:-khong co} / online: ${SOURCE_LINK})."
+        printf "${RED}%s${NC}\n" "Vui long kiem tra ket noi mang hoac file version. Huy cai dat."
+        exit 1
+    fi
+
     cd_dir "${MODULE_PATH}"
     wget -O- https://nginx.org/download/nginx-"${NGINX_VERSION}".tar.gz | tar -xz
     # Fork nginx-modules/ngx_cache_purge tuong thich nginx moi (FRiCKLE goc da ngung phat trien)
@@ -376,7 +384,7 @@ install_mariadb() {
 
     # Kiem tra repo MariaDB co ho tro phien ban Ubuntu nay khong,
     # neu chua co (VD: Ubuntu vua phat hanh) thi dung goi mariadb cua distro
-    if curl -sfI --max-time 15 "https://deb.mariadb.org/${MARIADB_VERSION}/ubuntu/dists/${UBUNTU_CODENAME}/Release" >/dev/null 2>&1; then
+    if [[ -n "${MARIADB_VERSION}" ]] && curl -sfI --max-time 15 "https://deb.mariadb.org/${MARIADB_VERSION}/ubuntu/dists/${UBUNTU_CODENAME}/Release" >/dev/null 2>&1; then
         mkdir -p /etc/apt/keyrings
         curl -fsSL https://mariadb.org/mariadb_release_signing_key.pgp -o /etc/apt/keyrings/mariadb-keyring.pgp
 
