@@ -1,0 +1,124 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+# Ket noi luu tru dang S3-compatible (AWS S3, Backblaze B2, MinIO tu host,
+# Wasabi, DigitalOcean Spaces...). Sau khi tao, remote tu dong dung duoc
+# o cac menu Backup / Restore / Auto backup (deu liet ke qua rclone listremotes).
+
+RCLONE_CONF_FILE="/root/.config/rclone/rclone.conf"
+
+_input_name() {
+    while true; do
+        echo "${lang_remote_name_notify:-Ten ket noi viet lien, khong dau, khong ky tu dac biet.}"
+        read -r -p "Input Remote Name [0 = Exit]: " remote_name
+        echo
+        if validate_user "${remote_name}" || [ "${remote_name}" == "0" ]; then
+            break
+        else
+            printf "%s\n" "${RED}${lang_wrong_format:-Gia tri khong hop le.}${NC}"
+        fi
+    done
+}
+
+_select_provider() {
+    clear
+    printf "%s\n" "Chon loai luu tru S3:"
+    PS3="Nhap vao lua chon cua ban: "
+    options=("AWS S3" "Backblaze B2" "MinIO" "Wasabi" "DigitalOcean Spaces" "Khac (S3-compatible)" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "AWS S3") s3_provider="AWS"; need_endpoint="no"; break ;;
+        "Backblaze B2") s3_provider="Other"; need_endpoint="yes"; endpoint_hint="s3.us-west-002.backblazeb2.com"; break ;;
+        "MinIO") s3_provider="Minio"; need_endpoint="yes"; endpoint_hint="https://minio.yourdomain.com"; break ;;
+        "Wasabi") s3_provider="Wasabi"; need_endpoint="yes"; endpoint_hint="s3.wasabisys.com"; break ;;
+        "DigitalOcean Spaces") s3_provider="DigitalOcean"; need_endpoint="yes"; endpoint_hint="nyc3.digitaloceanspaces.com"; break ;;
+        "Khac (S3-compatible)") s3_provider="Other"; need_endpoint="yes"; endpoint_hint=""; break ;;
+        "Cancel") s3_provider="cancel"; break ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon khong chinh xac. Vui long chon lai." ;;
+        esac
+    done
+}
+
+_input_credentials() {
+    read -r -p "Access Key ID [0 = Exit]: " s3_access
+    [[ -z "${s3_access}" || "${s3_access}" == "0" ]] && { s3_provider="cancel"; return; }
+
+    read -r -p "Secret Access Key [0 = Exit]: " s3_secret
+    [[ -z "${s3_secret}" || "${s3_secret}" == "0" ]] && { s3_provider="cancel"; return; }
+
+    s3_endpoint=""
+    if [ "${need_endpoint}" == "yes" ]; then
+        [ -n "${endpoint_hint}" ] && echo "Vi du endpoint: ${endpoint_hint}"
+        read -r -p "Endpoint [0 = Exit]: " s3_endpoint
+        [[ -z "${s3_endpoint}" || "${s3_endpoint}" == "0" ]] && { s3_provider="cancel"; return; }
+    fi
+
+    read -r -p "Region (Enter de bo qua): " s3_region
+}
+
+_create_remote() {
+    if [ -f "${RCLONE_CONF_FILE}" ] && grep -q "^\[${remote_name}\]" "${RCLONE_CONF_FILE}"; then
+        ALERT="${RED}Remote Name ${lang_already_exists:-da ton tai}. ${lang_input_other_value:-Vui long dung ten khac}.${NC}"
+        return
+    fi
+
+    args=(config create "${remote_name}" s3 provider "${s3_provider}" \
+        access_key_id "${s3_access}" secret_access_key "${s3_secret}")
+    [ -n "${s3_endpoint}" ] && args+=(endpoint "${s3_endpoint}")
+    [ -n "${s3_region}" ] && args+=(region "${s3_region}")
+
+    rclone "${args[@]}" >/dev/null 2>&1
+
+    # Kiem tra ket noi that su bang cach liet ke bucket
+    clear
+    printf "%s\n" "${GREEN}Dang kiem tra ket noi...${NC}"
+    if rclone lsd "${remote_name}:" >/dev/null 2>&1; then
+        clear
+        printf "%s\n" "${GREEN}Ket noi S3 (${s3_provider}) thanh cong voi ten remote '${remote_name}'.${NC}"
+        printf "%s\n" "${GREEN}Remote nay da san sang o menu Backup / Restore / Auto backup.${NC}"
+    else
+        rclone config delete "${remote_name}" >/dev/null 2>&1
+        clear
+        printf "%s\n" "${RED}Khong ket noi duoc toi S3. Kiem tra lai Access Key/Secret/Endpoint/quyen bucket.${NC}"
+        printf "%s\n" "${RED}Da huy tao remote '${remote_name}'.${NC}"
+    fi
+}
+
+remote_name=""
+s3_provider=""
+ALERT=""
+
+_input_name
+if [[ "${remote_name}" == "0" || -z "${remote_name}" ]]; then
+    clear
+    printf "%s\n" "${RED}${lang_cancel_action}${NC}"
+else
+    _select_provider
+    if [ "${s3_provider}" == "cancel" ]; then
+        clear
+        printf "%s\n" "${RED}${lang_cancel_action}${NC}"
+    else
+        _input_credentials
+        if [ "${s3_provider}" == "cancel" ]; then
+            clear
+            printf "%s\n" "${RED}${lang_cancel_action}${NC}"
+        else
+            _create_remote
+            [ -n "${ALERT}" ] && printf "%s\n" "${ALERT}"
+        fi
+    fi
+fi
+
+menu_backup
