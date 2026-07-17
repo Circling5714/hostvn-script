@@ -23,17 +23,21 @@ _check_prerequisite() {
         ALERT="${RED}Chua cai acme.sh. Vui long cau hinh CloudFlare DNS API truoc (menu 4).${NC}"
         return
     fi
-    if [[ ! -f "${CF_CONF}" ]] || ! grep -q "CF_Key" "${CF_CONF}"; then
+    # Chap nhan CF_Token (scoped, khuyen nghi) hoac CF_Key + CF_Email (Global API Key)
+    if [[ ! -f "${CF_CONF}" ]] || ! grep -qE "CF_Token|CF_Key" "${CF_CONF}"; then
         ALERT="${RED}Chua cau hinh CloudFlare DNS API. Vui long vao menu 4 de cau hinh truoc.${NC}"
         return
     fi
 }
 
 _issue_wildcard() {
-    # Export dung gia tri CF (bo "CF_Key=" va dau nhay)
-    CF_Key=$(grep -w "CF_Key" "${CF_CONF}" | cut -f2 -d'=' | tr -d '"')
-    CF_Email=$(grep -w "CF_Email" "${CF_CONF}" | cut -f2 -d'=' | tr -d '"')
-    export CF_Key CF_Email
+    # Export dung gia tri CF (bo phan "KEY=" va dau nhay)
+    CF_Token=$(grep -w "CF_Token" "${CF_CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '"')
+    CF_Key=$(grep -w "CF_Key" "${CF_CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '"')
+    CF_Email=$(grep -w "CF_Email" "${CF_CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '"')
+    [ -n "${CF_Token}" ] && export CF_Token
+    [ -n "${CF_Key}" ] && export CF_Key
+    [ -n "${CF_Email}" ] && export CF_Email
 
     clear
     printf "%s\n" "${GREEN}Dang cap chung chi wildcard cho *.${domain} va ${domain} ...${NC}"
