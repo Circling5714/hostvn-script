@@ -66,32 +66,49 @@ _input_credentials() {
     fi
 
     read -r -p "Region (Enter de bo qua): " s3_region
+
+    while true; do
+        read -r -p "Ten Bucket (da tao san tren S3) [0 = Exit]: " s3_bucket
+        [[ "${s3_bucket}" == "0" ]] && { s3_provider="cancel"; return; }
+        [ -n "${s3_bucket}" ] && break
+        printf "%s\n" "${RED}Bucket khong duoc de trong.${NC}"
+    done
 }
 
 _create_remote() {
-    if [ -f "${RCLONE_CONF_FILE}" ] && grep -q "^\[${remote_name}\]" "${RCLONE_CONF_FILE}"; then
+    # remote thô (ket noi S3) + alias tro vao bucket, de "remote:path" ->
+    # "s3:bucket/path", hoat dong giong Google Drive voi luong backup san co.
+    raw_remote="${remote_name}-s3"
+
+    if [ -f "${RCLONE_CONF_FILE}" ] && grep -qE "^\[(${remote_name}|${raw_remote})\]" "${RCLONE_CONF_FILE}"; then
         ALERT="${RED}Remote Name ${lang_already_exists:-da ton tai}. ${lang_input_other_value:-Vui long dung ten khac}.${NC}"
         return
     fi
 
-    args=(config create "${remote_name}" s3 provider "${s3_provider}" \
+    args=(config create "${raw_remote}" s3 provider "${s3_provider}" \
         access_key_id "${s3_access}" secret_access_key "${s3_secret}")
     [ -n "${s3_endpoint}" ] && args+=(endpoint "${s3_endpoint}")
     [ -n "${s3_region}" ] && args+=(region "${s3_region}")
 
     rclone "${args[@]}" >/dev/null 2>&1
+    rclone config create "${remote_name}" alias remote "${raw_remote}:${s3_bucket}" >/dev/null 2>&1
 
-    # Kiem tra ket noi that su bang cach liet ke bucket
+    # Kiem tra bang cach ghi + xoa 1 file nho vao dung duong dan backup se dung
     clear
-    printf "%s\n" "${GREEN}Dang kiem tra ket noi...${NC}"
-    if rclone lsd "${remote_name}:" >/dev/null 2>&1; then
+    printf "%s\n" "${GREEN}Dang kiem tra ket noi va quyen ghi vao bucket...${NC}"
+    echo "hostvn s3 write test" > /tmp/.hostvn_s3_test
+    if rclone copy /tmp/.hostvn_s3_test "${remote_name}:.hostvn_test/" >/dev/null 2>&1 \
+        && rclone delete "${remote_name}:.hostvn_test/.hostvn_s3_test" >/dev/null 2>&1; then
+        rm -f /tmp/.hostvn_s3_test
         clear
-        printf "%s\n" "${GREEN}Ket noi S3 (${s3_provider}) thanh cong voi ten remote '${remote_name}'.${NC}"
+        printf "%s\n" "${GREEN}Ket noi S3 (${s3_provider}) thanh cong. Remote: '${remote_name}' -> bucket '${s3_bucket}'.${NC}"
         printf "%s\n" "${GREEN}Remote nay da san sang o menu Backup / Restore / Auto backup.${NC}"
     else
+        rm -f /tmp/.hostvn_s3_test
         rclone config delete "${remote_name}" >/dev/null 2>&1
+        rclone config delete "${raw_remote}" >/dev/null 2>&1
         clear
-        printf "%s\n" "${RED}Khong ket noi duoc toi S3. Kiem tra lai Access Key/Secret/Endpoint/quyen bucket.${NC}"
+        printf "%s\n" "${RED}Khong ghi duoc vao bucket. Kiem tra lai Access Key/Secret/Endpoint/Bucket va quyen ghi.${NC}"
         printf "%s\n" "${RED}Da huy tao remote '${remote_name}'.${NC}"
     fi
 }
