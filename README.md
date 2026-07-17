@@ -55,17 +55,21 @@ Giữ nguyên đầy đủ tính năng bản gốc: tối ưu cấu hình theo t
 
 ```sh
 apt update && apt install git -y
-git clone https://github.com/<your-account>/<your-repo>.git hostvn-script
+git clone https://github.com/Circling5714/hostvn-script.git hostvn-script
 cd hostvn-script && bash install
 ```
 
-### Cách 2: Cài online (cần bật GitHub Pages cho repo)
+### Cách 2: Cài online (qua GitHub Pages)
 
 ```sh
-wget https://<your-account>.github.io/<your-repo>/install && bash install
+wget https://circling5714.github.io/hostvn-script/install && bash install
 ```
 
-Link tải mặc định đặt tại biến `SCRIPT_LINK`/`HOSTVN_SCRIPT_LINK` trong `install` và `UPDATE_LINK` trong `menu/helpers/variable_common` — đổi về repo của bạn trước khi phân phối.
+Link tải mặc định đặt tại biến `SCRIPT_LINK`/`HOSTVN_SCRIPT_LINK` trong `install` và `UPDATE_LINK` trong `menu/helpers/variable_common` — nếu fork thì đổi về repo của bạn trước khi phân phối.
+
+### Cài trên Proxmox LXC
+
+Script tự phát hiện môi trường container và bỏ qua tạo swap, kernel tweak, đồng thời tắt MariaDB native AIO. Yêu cầu: template Ubuntu 22.04/24.04, unprivileged OK, **bật `nesting=1`**, RAM ≥ 2GB khi cài (compile nginx). Swap cấu hình ở Proxmox → Resources.
 
 **Lưu ý cho dev:** sau khi sửa bất kỳ file nào trong `menu/`, phải đóng gói lại: `tar -czf menu.tar.gz menu` (line-ending LF).
 
