@@ -147,8 +147,9 @@ _sign_ssl() {
     _remove_ssl_cert
 
     if [[ -n "${method}" && "${method}" == "cf_api" ]]; then
-        CF_Key=$(grep -w "CF_Key" "/var/hostvn/.cloudflare.conf")
-        CF_Email=$(grep -w "CF_Email" "/var/hostvn/.cloudflare.conf")
+        # Lay dung gia tri (bo phan "CF_Key=" va dau nhay), tranh export bi long chuoi
+        CF_Key=$(grep -w "CF_Key" "/var/hostvn/.cloudflare.conf" | cut -f2 -d'=' | tr -d '"')
+        CF_Email=$(grep -w "CF_Email" "/var/hostvn/.cloudflare.conf" | cut -f2 -d'=' | tr -d '"')
 
         export CF_Key="${CF_Key}"
         export CF_Email="${CF_Email}"

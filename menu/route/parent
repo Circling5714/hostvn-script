@@ -102,6 +102,14 @@ force_renew_all_ssl(){
     . /var/hostvn/menu/controller/ssl/renew_all_ssl
 }
 
+ssl_le_wildcard(){
+    . /var/hostvn/menu/controller/ssl/wildcard
+}
+
+ssl_le_check_expiry(){
+    . /var/hostvn/menu/controller/ssl/check_expiry
+}
+
 menu_cache(){
     . /var/hostvn/menu/route/cache
 }
@@ -366,6 +374,10 @@ connect_onedrive(){
     . /var/hostvn/menu/controller/backup/connect_ondrive
 }
 
+connect_s3(){
+    . /var/hostvn/menu/controller/backup/connect_s3
+}
+
 delete_connect_google_drive(){
     . /var/hostvn/menu/controller/backup/delete_connect_google_drive
 }
@@ -536,4 +548,8 @@ telegram_disk_notify(){
 
 telegram_delete_notify(){
     . /var/hostvn/menu/controller/telegram/delete_notify
+}
+
+telegram_control_bot(){
+    . /var/hostvn/menu/controller/telegram/control_bot
 }

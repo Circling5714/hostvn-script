@@ -1,0 +1,171 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+CONF="/var/hostvn/.telegram_bot.conf"
+BOT_SCRIPT="/var/hostvn/menu/telegram_bot/bot.sh"
+SERVICE="/etc/systemd/system/hostvn-telegram-bot.service"
+SERVICE_NAME="hostvn-telegram-bot"
+
+_status() {
+    if systemctl is-active --quiet "${SERVICE_NAME}" 2>/dev/null; then
+        printf "%s\n" "${GREEN}Bot dang chay (che do: $(grep '^BOT_MODE=' "${CONF}" 2>/dev/null | cut -f2 -d'=' | tr -d '\"')).${NC}"
+    else
+        printf "%s\n" "${RED}Bot chua chay.${NC}"
+    fi
+}
+
+_select_action() {
+    clear
+    printf "%s\n" "Telegram Bot dieu khien server"
+    _status
+    echo
+    PS3="Nhap vao lua chon cua ban: "
+    options=("Cai dat / Cau hinh lai" "Tat va xoa bot" "Khoi dong lai bot" "Xem trang thai" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "Cai dat / Cau hinh lai") action="setup"; break ;;
+        "Tat va xoa bot") action="remove"; break ;;
+        "Khoi dong lai bot") action="restart"; break ;;
+        "Xem trang thai") action="status"; break ;;
+        "Cancel") action="cancel"; break ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon khong chinh xac." ;;
+        esac
+    done
+}
+
+_select_mode() {
+    clear
+    printf "%s\n" "Chon che do hoat dong cua bot:"
+    printf "%s\n" "1. notify  - Chi gui canh bao (SSH/dich vu chet/o dia day). An toan nhat."
+    printf "%s\n" "2. menu    - Canh bao + cac lenh dinh san (status/restart/reboot...). Khuyen nghi."
+    printf "%s\n" "3. shell   - Nhu menu + chay lenh shell bat ky (/sh). NGUY HIEM: lo token = mat server."
+    PS3="Nhap vao lua chon [1-3]: "
+    options=("notify" "menu" "shell")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "notify") BOT_MODE="notify"; break ;;
+        "menu") BOT_MODE="menu"; break ;;
+        "shell")
+            printf "%s\n" "${RED}Canh bao: che do shell cho phep chay lenh root bat ky qua Telegram.${NC}"
+            read -r -p "Ban chac chan? (y/n) " cfm
+            if [[ "${cfm}" =~ ^([yY])$ ]]; then BOT_MODE="shell"; break; else BOT_MODE="menu"; break; fi
+            ;;
+        *) printf "${RED}%s${NC}\n" "Lua chon khong chinh xac." ;;
+        esac
+    done
+}
+
+_detect_chat_id() {
+    printf "%s\n" "${GREEN}De lay Chat ID tu dong: mo Telegram, gui 1 tin nhan bat ky cho bot, roi bam Enter.${NC}"
+    read -r -p "Da gui tin nhan? Bam Enter de do (hoac nhap Chat ID thu cong sau): " _
+    local resp ids
+    resp=$(curl -s --max-time 15 "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates")
+    ids=$(echo "${resp}" | jq -r '.result[].message.chat.id' 2>/dev/null | sort -u | tr '\n' ',' | sed 's/,$//')
+    if [ -n "${ids}" ]; then
+        printf "%s\n" "${GREEN}Phat hien Chat ID: ${ids}${NC}"
+        ALLOWED_CHAT_IDS="${ids}"
+    else
+        printf "%s\n" "${RED}Chua do duoc Chat ID (bot chua nhan tin nhan nao).${NC}"
+    fi
+}
+
+_setup() {
+    # Yeu cau curl + jq
+    if ! command -v jq >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1; apt-get install -y jq >/dev/null 2>&1
+    fi
+
+    read -r -p "Nhap Bot Token (tu @BotFather) [0 = thoat]: " BOT_TOKEN
+    [[ -z "${BOT_TOKEN}" || "${BOT_TOKEN}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
+
+    # Kiem tra token hop le
+    if ! curl -s --max-time 15 "https://api.telegram.org/bot${BOT_TOKEN}/getMe" | jq -e '.ok == true' >/dev/null 2>&1; then
+        clear; printf "%s\n" "${RED}Bot Token khong hop le. Vui long kiem tra lai.${NC}"; return
+    fi
+
+    ALLOWED_CHAT_IDS=""
+    _detect_chat_id
+    if [ -z "${ALLOWED_CHAT_IDS}" ]; then
+        read -r -p "Nhap Chat ID duoc phep (nhieu ID cach nhau dau phay) [0 = thoat]: " ALLOWED_CHAT_IDS
+        [[ -z "${ALLOWED_CHAT_IDS}" || "${ALLOWED_CHAT_IDS}" == "0" ]] && { clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}"; return; }
+    fi
+
+    _select_mode
+
+    # Ghi config
+    cat > "${CONF}" <<EOF
+BOT_TOKEN="${BOT_TOKEN}"
+ALLOWED_CHAT_IDS="${ALLOWED_CHAT_IDS}"
+BOT_MODE="${BOT_MODE}"
+EOF
+    chmod 600 "${CONF}"
+
+    # Tao systemd service
+    cat > "${SERVICE}" <<EOF
+[Unit]
+Description=HOSTVN Telegram Control Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash ${BOT_SCRIPT}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    chmod +x "${BOT_SCRIPT}"
+    systemctl daemon-reload
+    systemctl enable "${SERVICE_NAME}" >/dev/null 2>&1
+    systemctl restart "${SERVICE_NAME}"
+    sleep 2
+
+    clear
+    if systemctl is-active --quiet "${SERVICE_NAME}"; then
+        printf "%s\n" "${GREEN}Bot da chay o che do '${BOT_MODE}'. Kiem tra Telegram, go /help.${NC}"
+    else
+        printf "%s\n" "${RED}Bot khong khoi dong duoc. Xem log: journalctl -u ${SERVICE_NAME}${NC}"
+    fi
+}
+
+_remove() {
+    systemctl stop "${SERVICE_NAME}" 2>/dev/null
+    systemctl disable "${SERVICE_NAME}" >/dev/null 2>&1
+    rm -f "${SERVICE}" "${CONF}" /var/hostvn/.telegram_bot.offset /var/hostvn/.telegram_bot.state
+    systemctl daemon-reload
+    clear
+    printf "%s\n" "${GREEN}Da tat va xoa cau hinh Telegram bot.${NC}"
+}
+
+action=""
+BOT_TOKEN=""
+BOT_MODE=""
+ALLOWED_CHAT_IDS=""
+
+_select_action
+
+case "${action}" in
+    setup) _setup ;;
+    remove) _remove ;;
+    restart)
+        systemctl restart "${SERVICE_NAME}" 2>/dev/null; sleep 1; clear; _status ;;
+    status) clear; _status ;;
+    *) clear; printf "%s\n" "${RED}${lang_cancel_action}${NC}" ;;
+esac
+
+telegram_notify

@@ -262,7 +262,8 @@ _select_remote(){
     list_remote=( "$(rclone listremotes)" )
     for entry in "${list_remote[@]}"; do
         rt=${entry//:}
-        if ! valid_ip "${rt}" && [ "$rt" != 'onedrive' ]; then
+        # Bo qua remote S3 tho (dang <ten>-s3) vi da co alias <ten> tro vao bucket
+        if ! valid_ip "${rt}" && [ "$rt" != 'onedrive' ] && [[ "${rt}" != *-s3 ]]; then
             remotes+=("${rt}")
         fi
     done
