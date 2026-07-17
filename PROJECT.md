@@ -1,0 +1,202 @@
+# Dự án Rebuild HOSTVN Script cho Ubuntu hiện đại
+
+> Tài liệu dự án — ghi lại toàn bộ quá trình phân tích, quyết định và thay đổi.
+> Ngày thực hiện: **17/07/2026** · Thực hiện: QMV + Claude Code
+
+---
+
+## 1. Tổng quan
+
+| Hạng mục | Thông tin |
+|---|---|
+| Repo gốc | https://github.com/f97-26082023/hostvn (fork của HOSTVN Script — Sanvv/HOSTVN) |
+| Repo mới | https://github.com/Circling5714/hostvn-script |
+| Link phân phối (GitHub Pages) | https://circling5714.github.io/hostvn-script |
+| Quy mô code | 206 file, ~31.500 dòng Bash |
+| Bản gốc hỗ trợ | Ubuntu 18.04 / 20.04, Debian 10 |
+| Bản rebuild hỗ trợ | **Ubuntu 22.04 / 24.04 / 26.04 LTS** (26.04 experimental) + **Proxmox LXC** |
+| Phiên bản script | 0.2.10 → **1.0.0** |
+
+**Mục tiêu:** rebuild bộ script cài đặt & quản trị LEMP Stack (Nginx – MariaDB – PHP-FPM) để tương thích với các phiên bản Ubuntu LTS mới nhất (2026), sửa các dependency đã chết, và hỗ trợ chạy trong container Proxmox LXC.
+
+## 2. Kiến trúc script (giữ nguyên từ bản gốc)
+
+```
+install  ──►  ubuntu  ──►  hostvn  ──►  menu.tar.gz (menu quản trị ~200 file)
+(check môi     (cài đặt      (cài LEMP,        │
+ trường, OS)   dependencies)  cấu hình)        └─►  update (nâng cấp về sau)
+```
+
+- Script tự tải chính nó từ GitHub Pages của repo (mô hình `wget → bash`).
+- Menu quản trị nằm trong `menu/`, đóng gói thành `menu.tar.gz`, giải nén vào `/var/hostvn/` khi cài.
+- File `version` là "single source of truth" cho phiên bản mọi thành phần.
+
+## 3. Quyết định phạm vi (đã chốt với chủ dự án)
+
+1. **Target OS:** Ubuntu 22.04 + 24.04 + 26.04 (26.04 experimental vì PPA ondrej/php chưa hỗ trợ).
+2. **Nginx:** tiếp tục build từ source (giữ đủ module cho tính năng FastCGI cache purge của menu), nâng lên stable 1.30.x, chuyển sang PCRE2 + OpenSSL 3 hệ thống, **bỏ ngx_pagespeed**.
+3. **MariaDB mặc định:** 11.8 LTS (hỗ trợ tới 6/2028; 11.8 vẫn giữ symlink lệnh `mysql` mà menu dùng nhiều).
+4. **Phân phối:** local-first (cài từ repo clone) + fallback link online, link đặt trong 1 biến có thể override.
+
+## 4. Bối cảnh phiên bản đã xác minh (07/2026)
+
+| Thành phần | Bản gốc | Bản rebuild | Ghi chú |
+|---|---|---|---|
+| Ubuntu mới nhất | — | 26.04 LTS "Resolute Raccoon" (4/2026) | ondrej/php PPA chưa hỗ trợ |
+| Nginx | 1.24.0 | **1.30.4** stable | vá CVE-2026-42533, CVE-2026-60005, CVE-2026-56434 |
+| OpenSSL | 1.1.1t build tĩnh (EOL!) | **OpenSSL 3 hệ thống** | 1.1.1 hết hỗ trợ từ 9/2023 |
+| PCRE | 8.45 build tĩnh | **PCRE2 hệ thống** | libpcre3 đã bị gỡ khỏi Ubuntu 24.04+ |
+| ngx_cache_purge | FRiCKLE 2.3 (chết) | **nginx-modules fork 2.5.6** | có fix cho struct change nginx 1.29.4 |
+| headers-more | 0.34 | **0.40** | |
+| nginx-module-vts | 0.2.1 | **0.2.5** | |
+| ngx_pagespeed | 1.14.33.1-RC1 | **BỎ** | Google bỏ rơi, không có PSOL binary, không compile được GCC mới |
+| MariaDB | 10.11 | **11.8 LTS** | |
+| PHP mặc định | 8.2 (php2: 7.4) | **8.4** (php2: 8.2) | list: 8.4 / 8.3 / 8.2 / 7.4 (bỏ 5.6) |
+| phpMyAdmin | 5.2.1 | **5.2.3** | |
+| php-redis (PECL) | 5.3.7 | **6.3.0** | |
+| php-memcached (PECL) | 3.2.0 | **3.4.0** | 3.2.0 không build được trên PHP 8.4 |
+| igbinary (PECL) | 3.2.14 | **3.2.16** | |
+| NodeJS | 12 / 14 | **22 LTS** | NodeSource keyring + repo `nodistro` |
+
+## 5. Các vấn đề phát hiện trong bản gốc
+
+### 5.1. Không tương thích Ubuntu mới
+- Chặn cứng OS ở 18.04/20.04 (`LIST_OS_VER_SUPPORT`).
+- Gói apt đổi tên/bị gỡ: `python` → `python3`, `libncurses5*` → `libncurses-dev`, `libaio1` → qua `libaio-dev`, `libpcre3*` → `libpcre2-dev`.
+- Ubuntu 22.04+ có `needrestart` → apt bật prompt tương tác giữa chừng, **treo cài đặt** nếu không set `DEBIAN_FRONTEND=noninteractive` + `NEEDRESTART_MODE=a`.
+- `mariadb_repo_setup` với SHA256 hardcode đã lỗi thời (checksum đổi theo mỗi release).
+- `mysql_secure_installation` qua heredoc — thứ tự prompt thay đổi giữa các bản MariaDB → dễ vỡ.
+- `listen 443 ssl http2` — syntax deprecated từ nginx 1.25.
+- Workflow GitHub Pages dùng `upload-pages-artifact@v1` / `deploy-pages@v1` — **GitHub đã khai tử đầu 2025**, deploy chắc chắn fail.
+- Ghi đè `/etc/resolv.conf` xung đột systemd-resolved (code này vốn đã bị comment, đã xoá hẳn).
+
+### 5.2. Dependency đã chết sẵn trong fork
+- **`HOMEPAGE_LINK` không được định nghĩa ở đâu cả** → mọi tính năng tải từ nó đã hỏng từ trước: cài PHP extension redis/memcached/igbinary, update phpMyAdmin, tải redis.conf, Nextcloud auto-install.
+- `nginx_new_version` — key không tồn tại trong file `version` → menu "Update Nginx" luôn báo "không có bản mới".
+- Menu tự update tải sai file: `curl -sO "${UPDATE_LINK}"` (tải URL gốc thay vì file `update`).
+
+### 5.3. Bug logic
+- Điều kiện cài `php-json`: `if != "8.0"` → với PHP 8.2/8.4 apt tìm gói `php8.x-json` không tồn tại → **fail cả lệnh cài PHP**.
+- Đổi phiên bản PHP: `apt purge` liệt kê từng gói (gồm `-json`) → gói không có trong archive làm fail cả lệnh purge.
+
+## 6. Thay đổi chi tiết theo file
+
+### `version`
+Cập nhật toàn bộ như bảng mục 4. Bỏ các key `openssl_version`, `pcre_version`, `zlib_version` (dùng lib hệ thống). `php_list=php8.4 php8.3 php8.2 php7.4`.
+
+### `install`
+- OS check chỉ còn `ubuntu` (bỏ Debian/CentOS), thông báo rõ 22.04/24.04/26.04.
+- Export `DEBIAN_FRONTEND=noninteractive`, `NEEDRESTART_MODE=a`; apt upgrade với `--force-confdef/confold`.
+- **Local-first**: nếu chạy từ repo clone thì dùng file cạnh nó, không thì tải từ `SCRIPT_LINK` (override qua env `HOSTVN_SCRIPT_LINK`). Truyền `HOSTVN_LOCAL_DIR` xuống các script con.
+
+### `ubuntu`
+- `LIST_OS_VER_SUPPORT=('22.04' '24.04' '26.04')`, cảnh báo experimental cho 26.04.
+- Sửa package list (mục 5.1); bỏ `apache2-dev`, `libpcre++-dev`, `libgeoip-dev` (chỉ phục vụ pagespeed/modsec); thêm `psmisc`.
+- Bỏ `create_source_list` (ghi đè sources.list) và `set_dns_server` (ghi đè resolv.conf).
+- `set_timezone` ưu tiên `timedatectl`.
+- **Guard container**: bỏ qua tạo swap trong LXC/Docker (swapon bị cấm), hướng dẫn set swap trên host.
+
+### `hostvn` (script cài chính, ~3.700 dòng)
+- Hàm `get_version_value()`: đọc file `version` local trước, fallback curl.
+- Detect IP qua `api.ipify.org` (fallback cyberpanel.sh).
+- `install_nginx`: bỏ toàn bộ pagespeed/PSOL + openssl/pcre/zlib vendored; build với `libpcre2-dev libssl-dev` hệ thống; thêm `--with-http_v3_module` (HTTP/3); cache_purge từ fork nginx-modules; `make -j$(nproc)`.
+- `install_mariadb`: keyring `/etc/apt/keyrings/mariadb-keyring.pgp` + deb822 `.sources`; **kiểm tra repo có suite của Ubuntu hiện tại không, nếu chưa → fallback gói distro** (quan trọng cho 26.04 mới phát hành).
+- `install_php`: **kiểm tra PPA ondrej có suite không trước khi add** → 26.04 fallback PHP distro; sửa điều kiện `php-json` (chỉ PHP 5.x/7.x).
+- `config_my_cnf`: thay `mysql_secure_installation` bằng SQL trực tiếp — root giữ **cả** `unix_socket` **và** password auth (`IDENTIFIED VIA unix_socket OR mysql_native_password`); comment `innodb=ON`; **guard container**: thêm `innodb_use_native_aio = 0` (io_uring bị seccomp chặn trong LXC unprivileged — lỗi MariaDB-không-start phổ biến nhất trên Proxmox).
+- `default_vhost`: `listen 443 ssl;` + `http2 on;` (syntax mới).
+- `kernel_tweak`: **guard container** — bỏ qua sysctl trong LXC (host quản lý).
+- `install_phpmyadmin`, `add_menu`: local-first cho `phpmyadmin.sql` và `menu.tar.gz`.
+- Bỏ `mkdir /etc/nginx/pagespeed`.
+
+### `update`
+- `script_version=1.0.0`; `UPDATE_LINK` 1 biến override được.
+- Khối rebuild nginx: đồng bộ với `install_nginx` mới (PCRE2/OpenSSL3/HTTP3, không pagespeed).
+- Sửa `listen 443 ssl http2` và `innodb=ON` trong phần regenerate config.
+
+### `menu/` (gỡ pagespeed + sửa controller)
+- **Xoá**: `controller/pagespeed/` (8 file), `route/lemp_ngx_pagespeed`, `template/ngx_pagespeed/` (9 file); gỡ option 5 khỏi `route/lemp`; gỡ 9 hàm wrapper khỏi `route/parent`. (Giữ đoạn dọn dẹp thư mục pagespeed cũ trong `delete_domain`/`clear_cache` — vô hại, giúp dọn cài đặt cũ.)
+- `route/lemp_nginx`: viết lại với hàm `_build_nginx()` dùng chung cho Update/Rebuild; option "Update Nginx" giờ so sánh `nginx -v` với `nginx_version` trong file version (sửa key chết `nginx_new_version`).
+- `controller/cache/script/install_php_{redis,memcached}.sh`, `controller/php/{change_php1,change_php2,install_php2}`: `MODULE_LINK` → **https://pecl.php.net/get** (PECL chính thức).
+- `controller/php/change_php1|2`: purge PHP cũ bằng glob `php${VER}*`.
+- `controller/cache/install_redis`: bỏ tải redis.conf từ link chết → dùng config của gói `redis-server` (reinstall `--force-confmiss` nếu thiếu).
+- `controller/tools/install_nodejs`: viết lại — NodeSource keyring + repo `nodistro`, Node 22 LTS.
+- `controller/tools/install_av`: ImunifyAV mở gate 18.04 → 18.04/20.04/22.04/24.04/26.04 (đã xác minh Imunify hỗ trợ tới 26.04). Lưu ý: ImunifyAV không hỗ trợ chính thức LXC — trong container dùng ClamAV.
+- `controller/tools/auto_install_source`: gỡ option Nextcloud (bundle từ server gốc đã chết).
+- `controller/admin/update_phpmyadmin`: tải từ files.phpmyadmin.net chính thức.
+- `controller/vps/update_scripts`: sửa bug tải sai file update.
+- `helpers/variable_common`: `UPDATE_LINK` → link repo mới (nơi duy nhất định nghĩa link cho toàn menu).
+
+### Khác
+- `.gitattributes` mới: ép LF cho mọi file text (script CRLF không chạy được trên Linux); `menu.tar.gz` đóng gói lại (204 entries, LF).
+- `.github/workflows/static.yml`: nâng lên `checkout@v4`, `configure-pages@v5` (+`enablement: true`), `upload-pages-artifact@v3`, `deploy-pages@v4`; trigger trên `main` + `master`.
+- `README.md`: viết lại — changelog, yêu cầu, 2 cách cài, ghi chú LXC.
+
+## 7. Hỗ trợ Proxmox LXC
+
+Script tự phát hiện container qua `systemd-detect-virt --container` và:
+1. Bỏ qua tạo swap (swapon bị cấm) → set swap ở Proxmox → Resources.
+2. Bỏ qua kernel tweak (sysctl kernel/net do host quản lý).
+3. Thêm `innodb_use_native_aio = 0` cho MariaDB (io_uring bị seccomp chặn).
+
+**Yêu cầu container:** template Ubuntu 22.04/24.04, unprivileged OK, **`nesting=1` bắt buộc** (systemd hardening + ufw/fail2ban cần), **≥ 2GB RAM / 2 cores lúc cài** (compile nginx ~5–15 phút), sau cài có thể hạ. Kernel tuning (BBR…) nếu muốn thì set trên host Proxmox. Nên snapshot trước khi cài để rollback được.
+
+## 8. Hạ tầng phân phối
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  git push main  ──►  GitHub Actions (static.yml)               │
+│                        └──►  GitHub Pages                      │
+│                              https://circling5714.github.io/   │
+│                              hostvn-script/{install,ubuntu,    │
+│                              hostvn,update,version,menu.tar.gz,│
+│                              phpmyadmin.sql}                   │
+└────────────────────────────────────────────────────────────────┘
+```
+
+- Remote `origin` = repo mới; remote `upstream` = repo gốc f97 (để đối chiếu về sau).
+- Pages Source = **GitHub Actions** (phải bật tay 1 lần trong Settings → Pages — workflow token không tự tạo Pages site được, lỗi `Resource not accessible by integration`).
+- Đã verify sau deploy: cả 7 file phân phối trả HTTP 200, nội dung `version` đúng.
+
+### Cách cài
+```sh
+# Cách 1: local-first (khuyến nghị)
+apt update && apt install git -y
+git clone https://github.com/Circling5714/hostvn-script.git && cd hostvn-script && bash install
+
+# Cách 2: online qua Pages
+wget https://circling5714.github.io/hostvn-script/install && bash install
+```
+
+## 9. Quy trình phát triển (cho lần sửa sau)
+
+1. Sửa code trên branch, **line-ending LF** (đã có `.gitattributes` ép sẵn).
+2. Nếu sửa bất kỳ file nào trong `menu/` → **bắt buộc** đóng gói lại: `rm -f menu.tar.gz && tar --format=gnu -czf menu.tar.gz menu`.
+3. Nâng phiên bản thành phần → sửa file `version` (menu Update Nginx / update script đọc từ đây).
+4. Kiểm tra syntax: `bash -n <file>` cho mọi script đã sửa.
+5. Push lên `main` → Pages tự deploy → VPS đã cài dùng menu `hostvn` → mục Update script để nhận bản mới.
+
+## 10. Lịch sử commit chính
+
+| Commit | Nội dung |
+|---|---|
+| `f2cff52` | (gốc f97) nginx 1.24.0 — điểm xuất phát |
+| `7221eab` | **Rebuild for Ubuntu 22.04/24.04/26.04 LTS** — toàn bộ thay đổi mục 6 (41 file, +370/−2205) |
+| `3cf51fa` | Trỏ link phân phối về Circling5714/hostvn-script, workflow main + auto-enablement, README |
+| `d229198` | Trigger deploy Pages sau khi bật Pages |
+
+## 11. Trạng thái & việc tiếp theo
+
+- [x] Phân tích + rebuild toàn bộ codebase
+- [x] Repo mới + GitHub Pages hoạt động, verify đủ file phân phối
+- [x] Hỗ trợ container (Proxmox LXC)
+- [ ] **Test cài đặt thật trên LXC Ubuntu 24.04** (phần rủi ro nhất: compile nginx, MariaDB start, PPA PHP) → snapshot trước khi cài, có lỗi thì gửi log để vá
+- [ ] Test các tính năng menu chính sau cài: thêm domain, SSL Let's Encrypt, cache Redis/Memcached, backup Rclone
+- [ ] (Tuỳ chọn) Theo dõi ondrej/php PPA hỗ trợ 26.04 để bỏ nhãn experimental
+
+## 12. Rủi ro đã biết / lưu ý
+
+- **Ubuntu 26.04**: chưa có PPA ondrej → chỉ có PHP mặc định của distro; MariaDB repo có thể chưa có suite `resolute` → script tự fallback gói distro.
+- **PHP 5.6** đã bỏ khỏi danh sách; code xử lý 5.6 trong menu vẫn còn (vô hại) phòng người dùng cũ.
+- `wp package install` (wp-cli-rename-db-prefix…) có thể kêu ca trên PHP 8.4 — không chặn cài đặt.
+- `optipng 0.7.7` / `jpegoptim 1.5.2` giữ nguyên phiên bản (URL còn sống, build được GCC mới) — có thể nâng sau.
+- ngx_cache_purge nhánh 3.x (async purge) đã ra — hiện dùng 2.5.6 cho ổn định, cân nhắc nâng sau khi 3.x trưởng thành.
