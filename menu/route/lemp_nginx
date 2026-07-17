@@ -24,7 +24,7 @@ _build_nginx(){
     local NGINX_BUILD_VERSION="$1"
     MODULE_PATH="/usr/share/nginx_module"
     mkdir -p "${MODULE_PATH}"
-    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev unzip uuid-dev git -y
+    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev libbrotli-dev unzip uuid-dev git -y
     ngx_cache_purge_version=$(curl -s "${UPDATE_LINK}"/version | grep "ngx_cache_purge_version=" | cut -f2 -d'=')
     more_clear_headers_v=$(curl -s "${UPDATE_LINK}"/version | grep "more_clear_headers_v=" | cut -f2 -d'=')
     nginx_module_vts_v=$(curl -s "${UPDATE_LINK}"/version | grep "nginx_module_vts_v=" | cut -f2 -d'=')

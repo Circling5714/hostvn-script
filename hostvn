@@ -292,7 +292,7 @@ check_duplicate_php() {
 ############################################
 install_nginx(){
     # Build voi PCRE2 + OpenSSL 3 cua he thong (libpcre3/OpenSSL 1.1.1 da bi go khoi Ubuntu 24.04+)
-    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev unzip uuid-dev git -y
+    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev libbrotli-dev unzip uuid-dev git -y
     apt autoremove -y
     MODULE_PATH="/usr/share/nginx_module"
     mkdir -p "${MODULE_PATH}"
@@ -345,6 +345,13 @@ install_nginx(){
         "--with-cc-opt='-D FD_SETSIZE=32768'"
 
     make -j"$(nproc)" && make install
+
+    # Fail fast: khong co binary nginx thi cac buoc sau deu vo nghia
+    if [ ! -x "/usr/sbin/nginx" ]; then
+        printf "${RED}%s${NC}\n" "Build Nginx that bai (khong tim thay /usr/sbin/nginx). Xem log phia tren de biet loi."
+        printf "${RED}%s${NC}\n" "Huy cai dat."
+        exit 1
+    fi
 
     if [[ -d "/usr/lib/nginx/modules" && ! -d "/etc/nginx/modules" ]]; then
         ln -s /usr/lib/nginx/modules /etc/nginx/modules

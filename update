@@ -612,7 +612,7 @@ more_clear_headers_v=$(curl -s ${UPDATE_LINK}/version | grep "more_clear_headers
 
 if [[ ! -d "${MODULE_PATH}/headers-more-nginx-module-${more_clear_headers_v}" ]]; then
     # Build voi PCRE2 + OpenSSL 3 cua he thong (libpcre3/OpenSSL 1.1.1 da bi go khoi Ubuntu 24.04+)
-    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev unzip uuid-dev git -y
+    apt-get install build-essential zlib1g-dev libpcre2-dev libssl-dev libbrotli-dev unzip uuid-dev git -y
     service nginx stop
     mkdir -p "${MODULE_PATH}"
     NGINX_VERSION=$(curl -s ${UPDATE_LINK}/version | grep "nginx_version=" | cut -f2 -d'=')
