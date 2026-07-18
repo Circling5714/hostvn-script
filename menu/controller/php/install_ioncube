@@ -30,8 +30,13 @@ _confirm(){
 _download_ioncube(){
     if [ ! -d "/usr/local/ioncube" ]; then
         _cd_dir /usr/local
-        wget http://downloads3.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz
-        tar xzf ioncube_loaders_lin_x86-64.tar.gz
+        # HTTPS bat buoc: goi nay chua file .so duoc nap vao MOI tien trinh PHP.
+        # Tai qua http tran thi ai chen duoc goi giua duong la chay duoc ma tuy y
+        # voi quyen cua PHP-FPM. (downloads3 khong ho tro TLS, downloads thi co.)
+        wget https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz \
+            || { printf "%s\n" "Khong tai duoc ionCube loader."; return 1; }
+        tar xzf ioncube_loaders_lin_x86-64.tar.gz \
+            || { printf "%s\n" "Goi ionCube tai ve bi hong."; rm -f ioncube_loaders_lin_x86-64.tar.gz; return 1; }
         rm -rf ioncube_loaders_lin_x86-64.tar.gz
     fi
 }

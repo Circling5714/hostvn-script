@@ -13,7 +13,25 @@ import config as C
 
 
 def is_allowed(chat_id: int) -> bool:
+    """Khung chat nay co duoc dung bot khong.
+
+    CHUA DU de cho phep thao tac: trong nhom, MOI thanh vien deu bam duoc nut
+    cua tin nhan bot gui. Phai kiem them nguoi bam bang is_actor_allowed().
+    """
     return chat_id in C.ALLOWED_CHAT_IDS
+
+
+def is_actor_allowed(user_id: Optional[int]) -> bool:
+    """NGUOI thuc su bam nut/go lenh co duoc phep khong.
+
+    Chat rieng thi user_id == chat_id nen khong doi gi. Trong nhom, day la
+    hang rao duy nhat ngan mot thanh vien bat ky dieu khien may chu — bot
+    chay bang root nen thieu no la ai o trong nhom cung co quyen root.
+    Khong xac dinh duoc nguoi gui (vd bai dang kenh) -> tu choi.
+    """
+    if user_id is None:
+        return False
+    return user_id in C.ALLOWED_CHAT_IDS or user_id in C.ADMIN_IDS
 
 
 def is_admin(chat_id: int) -> bool:

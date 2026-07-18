@@ -33,10 +33,10 @@ _install(){
         sed -i -e "s/#LocalSocket /LocalSocket /" /etc/clamd.d/scan.conf
         sed -i -e "s/^Example/#Example/" /etc/freshclam.conf
         {
-            echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.ndb"
-            echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.hdb"
-            echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.ldb"
-            echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.fp"
+            echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.ndb"
+            echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.hdb"
+            echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.ldb"
+            echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.fp"
         } >> /etc/freshclam.conf
         clear
         printf "%s\n" "${GREEN}Cai dat ClamAV thanh cong.${NC}"

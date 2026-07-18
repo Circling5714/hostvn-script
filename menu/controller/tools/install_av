@@ -82,10 +82,10 @@ _install_clamav() {
         check_expert_db=$(grep -w "expert" "/etc/clamav/freshclam.conf")
         if [ -z "${check_expert_db}" ]; then
             {
-                echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.ndb"
-                echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.hdb"
-                echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.ldb"
-                echo "DatabaseCustomURL http://cdn.malware.expert/malware.expert.fp"
+                echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.ndb"
+                echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.hdb"
+                echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.ldb"
+                echo "DatabaseCustomURL https://cdn.malware.expert/malware.expert.fp"
             } >>/etc/clamav/freshclam.conf
         fi
         freshclam

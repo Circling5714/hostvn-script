@@ -24,7 +24,8 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 SCRIPTS_VERSION="1.1.1"
-IPADDRESS=$(curl -s4 --max-time 10 https://api.ipify.org || curl -s --max-time 10 http://cyberpanel.sh/?ip)
+# Ca hai nguon deu qua HTTPS; cuoi cung moi lui ve IP cuc bo.
+IPADDRESS=$(curl -s4 --max-time 10 https://api.ipify.org || curl -s4 --max-time 10 https://ifconfig.co/ip || hostname -I | awk '{print $1}')
 DIR=$(pwd)
 BASH_DIR="/var/hostvn"
 GITHUB_RAW_LINK="https://raw.githubusercontent.com"

@@ -19,7 +19,8 @@ import hostvn
 import menus
 import progress
 import texts
-from permissions import can_write, get_user_features, has_feature, is_allowed
+from permissions import (can_write, get_user_features, has_feature,
+                         is_actor_allowed, is_allowed)
 
 HTML = ParseMode.HTML
 E = C.E
@@ -102,28 +103,52 @@ async def _progress_op(update, edit_existing, loading_title, work, render, est=5
 
 
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# Kiem quyen: LUON dua tren NGUOI bam, khong phai khung chat
+#
+# Trong nhom, moi thanh vien deu bam duoc nut cua tin nhan bot gui. Neu chi
+# kiem chat id thi ai o trong nhom cung dieu khien duoc may chu bang quyen
+# root. Vi vay: chat phai nam trong ALLOWED_CHAT_IDS *va* nguoi bam cung phai
+# duoc phep; moi kiem tra phia sau (can_write/has_feature) dung id NGUOI bam.
+# --------------------------------------------------------------------------- #
+def _actor(update: Update) -> int | None:
+    u = getattr(update, "effective_user", None)
+    return u.id if u else None
+
+
+def _gate(update: Update) -> int | None:
+    """Tra id nguoi bam neu duoc phep, None neu tu choi."""
+    ch = getattr(update, "effective_chat", None)
+    if ch is None or not is_allowed(ch.id):
+        return None
+    actor = _actor(update)
+    return actor if is_actor_allowed(actor) else None
+
+
+# --------------------------------------------------------------------------- #
 # Lenh
 # --------------------------------------------------------------------------- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not is_allowed(update.effective_chat.id):
+    chat = _gate(update)
+    if chat is None:
         return await update.message.reply_text("🚫 Bạn không có quyền dùng bot này.")
     user = update.effective_user
     host = await asyncio.to_thread(hostvn.sh, "hostname", 5)
     await update.message.reply_text(
         texts.greeting(user.first_name or "bạn", host, C.BOT_MODE),
         parse_mode=HTML,
-        reply_markup=menus.build_keyboard(_features(update.effective_chat.id)),
+        reply_markup=menus.build_keyboard(_features(_actor(update))),
     )
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, note: str = "") -> None:
-    if not is_allowed(update.effective_chat.id):
+    if _gate(update) is None:
         return
     hint = note or "Chọn chức năng từ <b>menu bên dưới</b>."
     await update.effective_message.reply_text(
         title(E["home"], "Menu chính", hint),
         parse_mode=HTML,
-        reply_markup=menus.build_keyboard(_features(update.effective_chat.id)),
+        reply_markup=menus.build_keyboard(_features(_actor(update))),
     )
 
 
@@ -132,7 +157,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.effective_message.reply_text(
         title(E["cancel"], "Đã huỷ", "Chọn lại từ <b>menu bên dưới</b>."),
         parse_mode=HTML,
-        reply_markup=menus.build_keyboard(_features(update.effective_chat.id)),
+        reply_markup=menus.build_keyboard(_features(_actor(update))),
     )
 
 
@@ -140,8 +165,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Nut menu chinh + nhap lieu conversation
 # --------------------------------------------------------------------------- #
 async def on_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat.id
-    if not is_allowed(chat):
+    chat = _gate(update)
+    if chat is None:
         return
     text = (update.message.text or "").strip()
 
@@ -349,8 +374,8 @@ async def open_group(update: Update, context: ContextTypes.DEFAULT_TYPE, feature
 async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    chat = update.effective_chat.id
-    if not is_allowed(chat):
+    chat = _gate(update)
+    if chat is None:
         return
 
     parts = (query.data or "").split("|")
@@ -377,14 +402,14 @@ _SUB_FEATURE = {"nginx": C.F_LEMP, "log": C.F_LEMP,
 
 
 async def cb_open(update, context, feature, params):
-    if not has_feature(update.effective_chat.id, _SUB_FEATURE.get(feature, feature)):
+    if not has_feature(_actor(update), _SUB_FEATURE.get(feature, feature)):
         return await update.callback_query.edit_message_text(texts.DENY, parse_mode=HTML)
     await open_group(update, context, feature, edit=True)
 
 
 # ---- Dich vu ---------------------------------------------------------------- #
 async def cb_svc(update, context, service, params):
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_SVC):
         return await update.callback_query.edit_message_text(texts.DENY, parse_mode=HTML)
 
@@ -405,7 +430,7 @@ def _svc_act_then_status(act: str, service: str) -> str:
 async def cb_do(update, context, service, params):
     q = update.callback_query
     act = params[0] if params else ""
-    if not can_write(update.effective_chat.id):
+    if not can_write(_actor(update)):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
                                          reply_markup=menus.back_only("m|svc"))
 
@@ -428,7 +453,7 @@ async def cb_do(update, context, service, params):
 # ---- Hanh dong "a|..." ------------------------------------------------------ #
 async def cb_action(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
 
     if action in WRITE_ACTIONS and not can_write(chat):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
@@ -893,7 +918,7 @@ def _run_action(action: str, chat: int):
 # ---- Picker (chon domain/db) ------------------------------------------------ #
 async def cb_pick(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     target = params[0] if params else ""
 
     if action == "dominfo":
@@ -1083,7 +1108,7 @@ def _wp_cache_flush(d: str) -> None:
 # ---- Tao domain (nd|def|<d> / nd|wp|<d>) ------------------------------------ #
 async def cb_nd(update, context, typ, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     domain = params[0] if params else ""
     if not can_write(chat):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
@@ -1186,7 +1211,7 @@ WP_LABEL = {
 # ---- Update scripts (mien "up") / Language (mien "lg2") --------------------- #
 async def cb_up(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_UPD) or not can_write(chat):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
                                          reply_markup=menus.back_only("m|upd"))
@@ -1207,7 +1232,7 @@ async def cb_up(update, context, action, params):
 
 async def cb_lg2(update, context, code, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_LANG) or not can_write(chat):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
                                          reply_markup=menus.back_only("m|lang"))
@@ -1221,7 +1246,7 @@ async def cb_lg2(update, context, code, params):
 # ---- WordPress (mien "wp") -------------------------------------------------- #
 async def cb_wp(update, context, key, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_WP):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
     if not can_write(chat):
@@ -1264,7 +1289,7 @@ def _php_ini_state(needle: str) -> str:
 
 async def cb_pp(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_PHP) and not has_feature(chat, C.F_LEMP):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
     if action not in _PHP_TOGGLES:
@@ -1332,7 +1357,7 @@ def _clear_logs() -> str:
 
 async def cb_lg(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_LEMP):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
 
@@ -1362,7 +1387,7 @@ async def cb_lg(update, context, action, params):
 # ---- Cache (mien "cc") ------------------------------------------------------ #
 async def cb_cc(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_CACHE):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
     if not can_write(chat):
@@ -1414,7 +1439,7 @@ async def cb_cc(update, context, action, params):
 # ---- SSL (mien "ssl") ------------------------------------------------------- #
 async def cb_ssl(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_SSL):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
     if not can_write(chat):
@@ -1431,7 +1456,7 @@ async def cb_ssl(update, context, action, params):
 # ---- Quan ly domain nang cao (mien "dm") ------------------------------------ #
 async def cb_dm(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_DOMAIN):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
     if not can_write(chat):
@@ -1473,7 +1498,7 @@ async def cb_dm(update, context, action, params):
 # ---- Backup / Restore (mien "bk") ------------------------------------------ #
 async def cb_bk(update, context, action, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not has_feature(chat, C.F_BACKUP):
         return await q.edit_message_text(texts.DENY, parse_mode=HTML)
     if not can_write(chat):
@@ -1545,7 +1570,7 @@ async def cb_bk(update, context, action, params):
 # ---- Xac nhan thao tac nguy hiem (cf / yes) --------------------------------- #
 async def cb_cf(update, context, action, params):
     q = update.callback_query
-    if not can_write(update.effective_chat.id):
+    if not can_write(_actor(update)):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
                                          reply_markup=menus.back_only("m|vps"))
     if action == "restartall":
@@ -1560,7 +1585,7 @@ async def cb_cf(update, context, action, params):
 
 async def cb_yes(update, context, what, params):
     q = update.callback_query
-    chat = update.effective_chat.id
+    chat = _actor(update)
     if not can_write(chat):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
                                          reply_markup=menus.back_only())
@@ -1790,7 +1815,7 @@ async def start_flow(update, context, flow, back, emoji, heading, prompt):
 
 
 async def handle_flow(update, context, flow, text):
-    chat = update.effective_chat.id
+    chat = _actor(update)
 
     if flow == "db_add":
         editor = await _make_editor(update, False)
