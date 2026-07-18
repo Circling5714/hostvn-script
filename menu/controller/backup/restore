@@ -16,16 +16,23 @@ source /var/hostvn/menu/helpers/function
 _select_backup_location() {
     clear
     printf "%s\n" "Lua chon noi luu backup"
-    PS3="Nhap vao lua chon cua ban [ 1 - 3 ]: "
-    location_options=("VPS (Local)" "Google Drive" "Cancel")
+    PS3="Nhap vao lua chon cua ban [ 1 - 4 ]: "
+    # "Cloud" gom Google Drive VA moi remote rclone khac (S3/MinIO/Backblaze...)
+    # vi buoc sau dung _select_remote liet ke tat ca. Truoc day nhan chi ghi
+    # "Google Drive" nen nguoi dung tuong khong khoi phuc duoc tu S3.
+    location_options=("VPS (Local)" "Cloud (Google Drive / S3 / remote khac)" "OneDrive" "Cancel")
     select opt_location in "${location_options[@]}"; do
         case $opt_location in
         "VPS (Local)")
             location="local"
             break
             ;;
-        "Google Drive")
+        "Cloud (Google Drive / S3 / remote khac)")
             location="drive"
+            break
+            ;;
+        "OneDrive")
+            location="onedrive"
             break
             ;;
         "Cancel")
@@ -180,11 +187,33 @@ _decompress_source() {
     chown -R "${user}":"${user}" /home/"${user}"/php
 }
 
+# Duong dan goc chua backup tren remote.
+# Google Drive / S3 / remote khac : <remote>:<IP>/<ngay>/<domain>
+# OneDrive                        : onedrive:<thu_muc>/<IP>/<ngay>/<domain>
+_set_remote_base() {
+    if [ "${location}" == "onedrive" ]; then
+        remote="onedrive"
+        onedrive_folder_name=$(grep -w "onedrive_folder_name" "${FILE_INFO}" | cut -f2 -d'=')
+        remote_base="${onedrive_folder_name}/${IPADDRESS}"
+    else
+        remote_base="${IPADDRESS}"
+    fi
+}
+
 _select_drive_backup_date() {
     clear
     echo "Chon ngay ban muon khoi phuc: "
     dates=()
-    selects_date=$(rclone lsf "${remote}":"${IPADDRESS}")
+    selects_date=$(rclone lsf "${remote}":"${remote_base}")
+    # Remote dong bo cham: vua backup xong ma liet ke chua thay thi KHONG phai
+    # la "khong co backup" — file con dang duoc day len kho ngoai.
+    if [ -z "${selects_date}" ] && [ "$(s3_sync_delay "${remote}")" -gt 0 ]; then
+        printf "%s\n" "${RED}Chua thay ban backup nao tren '${remote}'.${NC}"
+        printf "%s\n" "Remote nay duoc danh dau la DONG BO CHAM: neu ban vua backup xong,"
+        printf "%s\n" "hay doi vai phut roi thu lai — file dang duoc day len kho luu tru."
+        read -r -p "Nhan Enter de thu liet ke lai, hoac Ctrl+C de thoat: " _
+        selects_date=$(rclone lsf "${remote}":"${remote_base}")
+    fi
     for entry_date in ${selects_date}; do
         select_date=${entry_date///}
         dates+=("${select_date}")
@@ -196,8 +225,14 @@ _select_drive_backup_date() {
     done
 }
 
+# Dung chung cho Google Drive, S3 va OneDrive — chi khac cach xac dinh remote.
 _google_drive_action() {
-    _select_remote
+    if [ "${location}" == "onedrive" ]; then
+        _set_remote_base
+    else
+        _select_remote
+        _set_remote_base
+    fi
     if [ -z "${remote}" ]; then
         ALERT="${RED}Ban da chon huy khoi phuc du lieu.${NC}"
     else
@@ -207,7 +242,7 @@ _google_drive_action() {
         else
             clear
             echo "Chon ten mien ban muon khoi phuc: "
-            selects_domain=$(rclone lsf "${remote}":"${IPADDRESS}"/"${date}")
+            selects_domain=$(rclone lsf "${remote}":"${remote_base}"/"${date}")
             domains=()
             for entry_domain in ${selects_domain}; do
                 select_domain=${entry_domain///}
@@ -230,7 +265,7 @@ _google_drive_action() {
                 db_name=$(grep -w "db_name" "${USER_DIR}/.${domain}.conf" | cut -f2 -d'=')
                 clear
                 printf "%s\n" "Dang download du lieu. Vui long doi..."
-                rclone copy "${remote}:/${IPADDRESS}/${date}/${domain}" /home/backup/"${date}"/"${domain}" --bwlimit 30M
+                rclone copy "${remote}:${remote_base}/${date}/${domain}" /home/backup/"${date}"/"${domain}" --bwlimit 30M
             fi
         fi
     fi
@@ -403,6 +438,7 @@ location=""
 type=""
 remote_name=""
 remote=""
+remote_base=""
 domain=""
 date=""
 
@@ -417,7 +453,7 @@ else
         clear
         printf "${RED}%s${NC}\n" "Huy thao tac."
     else
-        if [[ "${location}" == "drive" && ! -f "/root/.config/rclone/rclone.conf" ]]; then
+        if [[ "${location}" =~ ^(drive|onedrive)$ && ! -f "/root/.config/rclone/rclone.conf" ]]; then
             _create_drive_connect
         else
             _run

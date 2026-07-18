@@ -16,14 +16,17 @@ source /var/hostvn/menu/helpers/function
 _select_backup_location() {
     clear
     PS3="${INPUT_SELECT} [ 1 - 4 ]: "
-    location_options=("VPS (Local)" "Google Drive" "OneDrive" "Cancel")
+    # "Cloud" liet ke moi remote rclone (Google Drive, S3/MinIO/Backblaze...)
+    # qua _select_remote — nhan cu chi ghi "Google Drive" nen nguoi dung tuong
+    # khong sao luu len S3 duoc, du da co muc ket noi S3 rieng o menu backup.
+    location_options=("VPS (Local)" "Cloud (Google Drive / S3 / remote khac)" "OneDrive" "Cancel")
     select opt_location in "${location_options[@]}"; do
         case $opt_location in
         "VPS (Local)")
             location="local"
             break
             ;;
-        "Google Drive")
+        "Cloud (Google Drive / S3 / remote khac)")
             location="drive"
             break
             ;;
@@ -181,6 +184,10 @@ _run() {
             printf "%s\n" "${GREEN}${PROCESSING}${NC}"
 
             rclone copy /home/backup/"${CURRENT_DATE}"/"${domain}" "${remote}":"${IPADDRESS}"/"${CURRENT_DATE}"/"${domain}" --bwlimit 30M >> /var/log/rclone.log 2>&1
+            # May chu S3 dong bo cham (vd day tiep len Telegram): upload xong
+            # roi nhung liet ke chua thay ngay. Cho va bao ro, de nguoi dung
+            # khong tuong backup that bai.
+            wait_s3_path "${remote}" "${IPADDRESS}/${CURRENT_DATE}/${domain}"
             rm -rf /home/backup/"${CURRENT_DATE}"/"${domain}"
             notify="${GREEN}Backup success.${NC}"
         fi

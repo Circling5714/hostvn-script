@@ -75,6 +75,44 @@ _input_credentials() {
     done
 }
 
+_ask_sync_delay() {
+    # Co may chu S3 khong luu tai cho ma day tiep len kho khac (vi du telecloud
+    # day len Telegram). Loai nay nhan file xong moi bat dau dong bo, nen vua
+    # upload xong ma liet ke thi chua thay gi. Ghi nhan de backup/restore cho
+    # dung thay vi bao "khong co backup".
+    echo
+    printf "%s\n" "May chu S3 nay co dong bo cham khong?"
+    printf "%s\n" "(Chon Co neu sau khi upload phai doi mot luc file moi hien ra khi liet ke,"
+    printf "%s\n" " vi du dich vu luu tru day tiep len Telegram/kho ngoai.)"
+    PS3="${SELECT_OPTION:-Nhap vao lua chon cua ban: }"
+    options=("Khong - file hien ra ngay" "Co - can cho dong bo" "Cancel")
+    select opt in "${options[@]}"; do
+        case $opt in
+        "Khong - file hien ra ngay")
+            s3_set_sync_delay "${remote_name}" 0
+            break
+            ;;
+        "Co - can cho dong bo")
+            local sec=""
+            while true; do
+                printf "%s
+" "Chi la thoi gian CHO XAC NHAN sau khi upload — het gio khong bi coi la loi."
+                read -r -p "Thoi gian cho toi da (giay, Enter = 60): " sec
+                [ -z "${sec}" ] && sec=60
+                case "${sec}" in
+                    ''|*[!0-9]*) printf "%s\n" "${RED}Nhap so giay.${NC}" ;;
+                    *) break ;;
+                esac
+            done
+            s3_set_sync_delay "${remote_name}" "${sec}"
+            printf "%s\n" "${GREEN}Da ghi nhan: remote '${remote_name}' cho toi da ${sec}s de dong bo.${NC}"
+            break
+            ;;
+        *) s3_set_sync_delay "${remote_name}" 0; break ;;
+        esac
+    done
+}
+
 _create_remote() {
     # remote thô (ket noi S3) + alias tro vao bucket, de "remote:path" ->
     # "s3:bucket/path", hoat dong giong Google Drive voi luong backup san co.
@@ -97,16 +135,21 @@ _create_remote() {
     clear
     printf "%s\n" "${GREEN}Dang kiem tra ket noi va quyen ghi vao bucket...${NC}"
     echo "hostvn s3 write test" > /tmp/.hostvn_s3_test
-    if rclone copy /tmp/.hostvn_s3_test "${remote_name}:.hostvn_test/" >/dev/null 2>&1 \
-        && rclone delete "${remote_name}:.hostvn_test/.hostvn_s3_test" >/dev/null 2>&1; then
+    # CHI kiem tra lenh ghi co thanh cong khong. KHONG doi doc lai duoc ngay:
+    # may chu dong bo cham (vd day tiep len Telegram) nhan file xong moi day
+    # di, phai mot luc sau liet ke moi thay -> doc lai ngay se bao that bai oan.
+    if rclone copy /tmp/.hostvn_s3_test "${remote_name}:.hostvn_test/" >/dev/null 2>&1; then
+        rclone delete "${remote_name}:.hostvn_test/.hostvn_s3_test" >/dev/null 2>&1
         rm -f /tmp/.hostvn_s3_test
         clear
         printf "%s\n" "${GREEN}Ket noi S3 (${s3_provider}) thanh cong. Remote: '${remote_name}' -> bucket '${s3_bucket}'.${NC}"
+        _ask_sync_delay
         printf "%s\n" "${GREEN}Remote nay da san sang o menu Backup / Restore / Auto backup.${NC}"
     else
         rm -f /tmp/.hostvn_s3_test
         rclone config delete "${remote_name}" >/dev/null 2>&1
         rclone config delete "${raw_remote}" >/dev/null 2>&1
+        s3_forget_remote "${remote_name}"
         clear
         printf "%s\n" "${RED}Khong ghi duoc vao bucket. Kiem tra lai Access Key/Secret/Endpoint/Bucket va quyen ghi.${NC}"
         printf "%s\n" "${RED}Da huy tao remote '${remote_name}'.${NC}"

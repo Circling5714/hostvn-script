@@ -259,9 +259,14 @@ _wp_auto_install_info(){
 _select_remote(){
     echo "${SELECT_REMOTE}"
     remotes=()
-    list_remote=( "$(rclone listremotes)" )
+    # mapfile chu KHONG phai list_remote=( "$(rclone listremotes)" ): cach cu nhet
+    # CA danh sach vao MOT phan tu (co ky tu xuong dong ben trong), nen bo loc
+    # ben duoi so sanh nham tren ca cum -> remote tho "<ten>-s3" khong bao gio bi
+    # loai va van hien trong menu. Chon phai no la sai duong dan (thieu ten bucket).
+    mapfile -t list_remote < <(rclone listremotes 2>/dev/null)
     for entry in "${list_remote[@]}"; do
         rt=${entry//:}
+        [ -z "${rt}" ] && continue
         # Bo qua remote S3 tho (dang <ten>-s3) vi da co alias <ten> tro vao bucket
         if ! valid_ip "${rt}" && [ "$rt" != 'onedrive' ] && [[ "${rt}" != *-s3 ]]; then
             remotes+=("${rt}")
@@ -270,7 +275,7 @@ _select_remote(){
 
     PS3="${SELECT_OPTION}"
 
-    select opt_remote in ${remotes[@]}
+    select opt_remote in "${remotes[@]}"
     do
         remote=${opt_remote}
         break
@@ -290,4 +295,69 @@ _restart_service(){
     if [ "${php2_release}" == "yes" ]; then
         systemctl restart php"${php2_version}"-fpm
     fi
+}
+
+# --------------------------------------------------------------------------- #
+# S3 dong bo cham (eventual consistency)
+#
+# Mot so may chu S3 khong luu file ngay ma day tiep len kho khac (vi du
+# telecloud day len Telegram). Upload tra ve OK ngay, nhung phai vai giay den
+# vai phut sau file moi hien ra khi liet ke. Doi file xuat hien "ngay lap tuc"
+# la sai ky vong -> phai biet remote nao thuoc loai nay va cho.
+#
+# Luu tai /var/hostvn/.s3_remote.conf, moi dong: <ten_remote>|<so_giay_cho>
+# --------------------------------------------------------------------------- #
+S3_REMOTE_CONF="/var/hostvn/.s3_remote.conf"
+
+# Tra ve so giay can cho cua remote (0 = dong bo ngay, khong can cho)
+s3_sync_delay() {
+    local name="$1"
+    [ -f "${S3_REMOTE_CONF}" ] || { echo 0; return; }
+    local d
+    d=$(grep -m1 "^${name}|" "${S3_REMOTE_CONF}" 2>/dev/null | cut -d'|' -f2)
+    case "${d}" in
+        ''|*[!0-9]*) echo 0 ;;
+        *) echo "${d}" ;;
+    esac
+}
+
+s3_set_sync_delay() {
+    local name="$1" delay="$2"
+    touch "${S3_REMOTE_CONF}"
+    chmod 600 "${S3_REMOTE_CONF}"
+    sed -i "/^${name}|/d" "${S3_REMOTE_CONF}" 2>/dev/null
+    echo "${name}|${delay}" >> "${S3_REMOTE_CONF}"
+}
+
+s3_forget_remote() {
+    [ -f "${S3_REMOTE_CONF}" ] && sed -i "/^${1}|/d" "${S3_REMOTE_CONF}" 2>/dev/null
+}
+
+# Cho file hien ra sau khi upload len remote dong bo cham.
+#
+# LUU Y: het gio ma chua thay thi KHONG phai loi. Lenh upload da tra ve OK,
+# nghia la may chu DA NHAN file; viec no day tiep len kho ngoai (Telegram...)
+# co the mat vai phut den hang chuc phut tuy dung luong. Vi vay ham nay luon
+# tra 0 — no chi de BAO TIN, khong duoc phep lam backup bi danh dau that bai.
+wait_s3_path() {
+    local remote="$1" path="$2" max
+    max=$(s3_sync_delay "${remote}")
+    [ "${max}" -le 0 ] && return 0
+
+    local waited=0 step=10
+    printf "%s\n" "Remote '${remote}' dong bo cham — dang cho file hien ra (toi da ${max}s)..."
+    while [ "${waited}" -lt "${max}" ]; do
+        if [ -n "$(rclone lsf "${remote}:${path}" 2>/dev/null)" ]; then
+            printf "%s\n" "${GREEN}Da thay du lieu tren remote sau ${waited}s.${NC}"
+            return 0
+        fi
+        sleep "${step}"
+        waited=$((waited + step))
+        printf "  ... %ss\n" "${waited}"
+    done
+
+    printf "%s\n" "${GREEN}Da upload xong.${NC} File chua hien ra sau ${max}s — BINH THUONG voi remote nay."
+    printf "%s\n" "May chu con dang day du lieu len kho luu tru; file cang lon cang lau."
+    printf "%s\n" "Kiem tra lai sau bang: rclone ls ${remote}:${path}"
+    return 0
 }
