@@ -3286,6 +3286,14 @@ END
 ############################################
 add_menu() {
     cd_dir "${BASH_DIR}"
+    # venv cua bot Telegram nam TRONG menu/ nhung KHONG thuoc goi menu.tar.gz.
+    # Khong cat rieng ra thi "rm -rf menu" ngay duoi xoa luon, va sau khi cap nhat
+    # bot khong khoi dong duoc nua (unit tro vao venv/bin/python da bien mat).
+    _bot_venv_tmp=""
+    if [ -d "${BASH_DIR}/menu/telegram_bot/venv" ]; then
+        _bot_venv_tmp="$(mktemp -d)"
+        mv "${BASH_DIR}/menu/telegram_bot/venv" "${_bot_venv_tmp}/venv"
+    fi
     rm -rf menu hostvn.conf ipaddress menu.tar.gz /usr/bin/hostvn
     # Uu tien file trong repo da clone (cai local), fallback tai tu SOURCE_LINK
     # Nguon menu, uu tien tu tren xuong:
@@ -3311,6 +3319,18 @@ add_menu() {
     dos2unix ./menu/*/*/* > /dev/null
 
     mv "${BASH_DIR}"/menu/hostvn /usr/bin/hostvn && chmod +x /usr/bin/hostvn
+
+    # Tra lai venv roi khoi dong lai bot. Bat buoc phai restart: Python nap module
+    # mot lan luc chay, khong doc lai file tren dia -> khong restart thi bot van
+    # chay MA NGUON CU du da cap nhat.
+    if [ -n "${_bot_venv_tmp}" ] && [ -d "${_bot_venv_tmp}/venv" ]; then
+        mkdir -p "${BASH_DIR}/menu/telegram_bot"
+        mv "${_bot_venv_tmp}/venv" "${BASH_DIR}/menu/telegram_bot/venv"
+        rmdir "${_bot_venv_tmp}" 2>/dev/null
+    fi
+    if systemctl list-unit-files hostvn-telegram-bot.service >/dev/null 2>&1; then
+        systemctl restart hostvn-telegram-bot >/dev/null 2>&1
+    fi
 }
 
 ############################################
