@@ -19,8 +19,8 @@ NC=$(tput sgr0)
 
 # other varialbe
 MENU_NAME="hostvn"
-AUTHOR="HOSTVN.VN"
-AUTHOR_WEB="HOSTVN.VN"
+AUTHOR="HostVN"
+AUTHOR_WEB="HostVN Scripts"
 UPDATE_LINK="https://circling5714.github.io/hostvn-script"
 CURRENT_DATE=$(date +%Y-%m-%d)
 

@@ -23,7 +23,7 @@ DIR=$(pwd)
 RED='\033[0;31m'
 NC='\033[0m'
 
-SCRIPTS_VERSION="1.0.0"
+SCRIPTS_VERSION="1.1.1"
 IPADDRESS=$(curl -s4 --max-time 10 https://api.ipify.org || curl -s --max-time 10 http://cyberpanel.sh/?ip)
 DIR=$(pwd)
 BASH_DIR="/var/hostvn"
@@ -37,7 +37,7 @@ OS_VER=$(grep "^VERSION_ID=" "/etc/os-release" | cut -f2 -d'=' | cut -f2 -d'"')
 UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || grep "^VERSION_CODENAME=" "/etc/os-release" | cut -f2 -d'=')
 
 # Copyright
-AUTHOR="HOSTVN.VN"
+AUTHOR="HostVN"
 AUTHOR_CONTACT="https://www.facebook.com/groups/hostvn.vn"
 
 # Doc gia tri tu file version: uu tien file local trong repo, fallback link online
@@ -66,9 +66,9 @@ ENTER_OPTION_PHP_2="Nhap vao lua chon cua ban [1-2]: "
 WRONG_PHP_SELECT_2="Ban nhap sai. Vui long nhap lai."
 INVALID_PHP2_OPTION="${RED}Lua chon cua ban khong chinh xac. Vui long chon lai.${NC}"
 SELECT_PHP_2="Lua chon phien ban PHP thu hai ban muon su dung:"
-LOGIN_NOTI1="Cam on ban da su dung dich vu cua ${AUTHOR}."
+LOGIN_NOTI1="HostVN Scripts — Cai dat va toi uu LEMP Stack tren Ubuntu"
 LOGIN_NOTI2="Neu can ho tro vui long truy cap ${AUTHOR_CONTACT}"
-LOGIN_NOTI3="Truoc khi dat cau hoi vui long xem Document: https://doc.hostvn.vn/"
+LOGIN_NOTI3="Truoc khi dat cau hoi vui long xem Document: https://github.com/Circling5714/hostvn-script"
 LOGIN_NOTI4="De mo menu ban go lenh sau: hostvn"
 
 # Random Port
@@ -146,15 +146,22 @@ set_email() {
 }
 
 ssh_login_notify() {
-    string=$(grep -rnw "$HOME/.bashrc" -e "${AUTHOR}")
-    if [ -z "${string}" ]; then
-        {
-            echo "echo \"${LOGIN_NOTI1}\""
-            echo "echo \"${LOGIN_NOTI2}\""
-            echo "echo \"${LOGIN_NOTI3}\""
-            echo "echo \"${LOGIN_NOTI4}\""
-        } >>"$HOME"/.bashrc
-    fi
+    # Xoa loi chao cu roi ghi lai -> chay bao nhieu lan cung ra dung mot ban.
+    # Truoc day chi kiem tra su ton tai cua ${AUTHOR}; doi thuong hieu mot cai la
+    # chuoi cu khong con khop, chay lai installer se cong them loi chao thu hai.
+    sed -i \
+        -e '/Cam on ban da su dung dich vu cua/d' \
+        -e '/Cai dat va toi uu LEMP Stack tren Ubuntu/d' \
+        -e '/Neu can ho tro vui long truy cap/d' \
+        -e '/Truoc khi dat cau hoi vui long xem Document/d' \
+        -e '/De mo menu ban go lenh sau: hostvn/d' \
+        "$HOME"/.bashrc 2>/dev/null
+    {
+        echo "echo \"${LOGIN_NOTI1}\""
+        echo "echo \"${LOGIN_NOTI2}\""
+        echo "echo \"${LOGIN_NOTI3}\""
+        echo "echo \"${LOGIN_NOTI4}\""
+    } >>"$HOME"/.bashrc
 }
 
 ############################################
