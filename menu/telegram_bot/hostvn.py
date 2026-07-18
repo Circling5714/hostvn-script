@@ -233,6 +233,17 @@ def _domain_user(domain: str) -> str:
     return parts[2] if len(parts) > 2 else ""
 
 
+def _php_choice_answer() -> str:
+    """Cau tra loi cho buoc chon phien ban PHP cua add_domain — hoac chuoi rong.
+
+    add_domain CHI hoi phien ban PHP khi may cai 2 ban PHP (php2_release=yes).
+    Neu cu nhoi san mot dong tra loi ma may khong hoi (hoac nguoc lai), toan bo
+    cac cau tra loi sau se lech mot nhip: site tao ra thieu database va thieu
+    ma nguon. Vi vay phai do cau hinh THUC TE cua may.
+    """
+    return "1\n" if conf_val("php2_release") == "yes" else ""
+
+
 def create_domain(typ: str, domain: str) -> tuple[bool, dict, str]:
     """typ = 'def' (PHP) hoac 'wp' (WordPress). Tra (ok, info_dict, raw_output)."""
     d = domain.strip().lower()
@@ -248,9 +259,9 @@ def create_domain(typ: str, domain: str) -> tuple[bool, dict, str]:
             m = re.search(r"^admin_email=(.*)$", fi.read_text(errors="replace"), re.M)
             wpmail = m.group(1).strip() if m else ""
         wpmail = wpmail or f"admin@{d}"
-        seq = f"{d}\n1\ny\ny\ny\n1\nn\n{wpuser}\n{wpmail}\n{d}"
+        seq = f"{d}\n{_php_choice_answer()}1\ny\ny\ny\n1\nn\n{wpuser}\n{wpmail}\n{d}"
     else:
-        seq = f"{d}\n20\nn"
+        seq = f"{d}\n{_php_choice_answer()}20\nn"
     out = run_ctl(seq, "/var/hostvn/menu/controller/domain/add_domain", 200)
     if not (Path(C.VHOST_DIR) / f"{d}.conf").exists():
         tail = "\n".join(out.strip().splitlines()[-4:])
@@ -271,6 +282,19 @@ def create_domain(typ: str, domain: str) -> tuple[bool, dict, str]:
         mp = re.search(r"khau dang nhap wp-admin\s*:\s*(.+)", out)
         info["wp_user"] = (mu.group(1).strip() if mu else "")
         info["wp_pass"] = (mp.group(1).strip() if mp else "")
+
+    # vHost ton tai KHONG co nghia la xong. Neu chon WordPress ma thieu database
+    # hoac thieu ma nguon thi phai noi ro, dung bao "da tao" cho mot site hong.
+    if typ == "wp":
+        thieu = []
+        if not info["db_name"]:
+            thieu.append("database")
+        if not (dr and (Path(dr) / "wp-admin").is_dir()):
+            thieu.append("mã nguồn WordPress")
+        if thieu:
+            info["incomplete"] = (
+                "Đã tạo vHost, user và thư mục, nhưng THIẾU: " + ", ".join(thieu) + "."
+            )
     return True, info, ""
 
 
@@ -296,6 +320,11 @@ def delete_domain(domain: str) -> bool:
     sh(script, 60, source_env=True, merge=True)
     if dbn:
         _mysql_file(f"DROP DATABASE IF EXISTS `{dbn}`;DROP USER IF EXISTS '{dbu}'@'localhost';FLUSH PRIVILEGES;")
+    # Che do tunnel: phai xoa CNAME nua. Ham nay chay lenh shell thô chu khong goi
+    # controller delete_domain, nen khong tu dong huong buoc xoa DNS cua no ->
+    # khong lam o day thi ban ghi mo coi van tro vao tunnel.
+    if is_tunnel_mode():
+        sh(f"bash /var/hostvn/menu/tunnel/cf_tunnel.sh del-dns {qd}", 45, merge=True)
     return not (Path(C.VHOST_DIR) / f"{d}.conf").exists()
 
 

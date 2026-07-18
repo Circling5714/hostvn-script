@@ -1124,6 +1124,13 @@ async def cb_nd(update, context, typ, params):
             lines += [f"WP admin  : {info['wp_user']}",
                       f"WP pass   : {info['wp_pass']}",
                       f"WP login  : http://{domain}/wp-admin"]
+        if info.get("incomplete"):
+            return (title(E["warn"], f"Tạo {domain} chưa trọn vẹn",
+                          pre("\n".join(lines)) +
+                          f"\n⚠️ {texts.esc(info['incomplete'])}\n\n"
+                          "Xoá site này rồi tạo lại, hoặc hoàn tất qua SSH: "
+                          "<code>hostvn</code> → <b>1. Quan ly ten mien</b>."),
+                    menus.back_only("m|domain"))
         return (title(E["confirm"], f"Đã tạo {domain}",
                       f"<code>{progress.bar(100)}</code>\n" + pre("\n".join(lines)) +
                       "\n⚠️ <b>Lưu lại thông tin này!</b>"),
