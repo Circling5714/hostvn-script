@@ -28,6 +28,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
 )
+# httpx log nguyen URL moi request, ma URL cua Telegram co CHUA BOT TOKEN
+# -> token bi ghi vao journald/log file. Chi giu lai muc canh bao tro len.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("hostvn-bot")
 
 
@@ -90,6 +94,10 @@ async def post_init(app: Application) -> None:
         except Exception as e:  # noqa: BLE001
             log.warning("boot notify %s: %s", cid, e)
 
+    # PTB canh bao task tao o post_init khong duoc tu dong await luc tat (app chua
+    # start). Vong lap _monitor van chay dung; canh bao chi lien quan luc shutdown.
+    # Builder cua PTB 21.x KHONG co hook post_start de chuyen sang, va JobQueue can
+    # extra 'python-telegram-bot[job-queue]' — nen giu nguyen cach nay.
     app.create_task(_monitor(app))
 
 
