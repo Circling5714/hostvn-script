@@ -271,3 +271,81 @@ Chế độ tuỳ chọn: mọi website phục vụ qua Cloudflare Tunnel, **VPS
 - `wp package install` (wp-cli-rename-db-prefix…) có thể kêu ca trên PHP 8.4 — không chặn cài đặt.
 - `optipng 0.7.7` / `jpegoptim 1.5.2` giữ nguyên phiên bản (URL còn sống, build được GCC mới) — có thể nâng sau.
 - ngx_cache_purge nhánh 3.x (async purge) đã ra — hiện dùng 2.5.6 cho ổn định, cân nhắc nâng sau khi 3.x trưởng thành.
+
+## 15. Bot Telegram giao diện menu + các fix back-port từ nhánh ARM64 (18/07/2026)
+
+Nhánh ARM64 (`hostvn-script-arm64`, chạy trên Android/Linux Deploy) được phát triển song song
+và trong quá trình đó phát sinh nhiều thứ **không phụ thuộc kiến trúc**. Đợt này back-port
+những thứ đó về bản x86, đồng thời **giữ nguyên** phần chỉ đúng với ARM64.
+
+### 15.1. Bot Telegram được viết lại bằng Python
+
+Bản cũ (`menu/telegram_bot/bot.sh`) chỉ có vài lệnh gõ tay. Bản mới mirror **toàn bộ 15 nhóm
+menu của shell `hostvn`** thành nút bấm — dùng được mà không cần SSH.
+
+| Thành phần | Vai trò |
+|---|---|
+| `bot.py` | Điểm vào, `run_polling(drop_pending_updates=True)`, đăng ký `MenuButtonCommands` |
+| `config.py` | Đọc `.telegram_bot.conf`, khai báo `F_*` (feature key) và bảng emoji `E` |
+| `permissions.py` | `is_allowed` / `is_admin` / `can_write` / feature-gating theo từng chat |
+| `menus.py` | `MAIN_MENU` khai báo bằng dữ liệu (16 nút) + các builder submenu inline |
+| `handlers.py` | Router `on_callback`, `callback_data` dạng `<miền>\|<hành_động>\|<tham_số>` |
+| `hostvn.py` | Tầng nghiệp vụ: bọc subprocess quanh controller shell có sẵn |
+| `progress.py` | Thanh tiến trình động (tiệm cận 96%, chốt 100% khi xong) |
+| `texts.py` | Escape HTML, định dạng tiêu đề/khối `<pre>` |
+
+- **Menu chính** là `ReplyKeyboardMarkup` nên nút nằm cố định ở đáy khung chat; submenu là inline.
+- **Feature-gating:** admin (`features=None`) thấy đủ 16 nút, chat bị giới hạn chỉ thấy phần được cấp.
+- Các thao tác cần nhập nhiều bước (nén ảnh, deploy, đổi port admin…) cố tình **để lại cho SSH**,
+  bot hiển thị đúng đường dẫn menu thay vì làm nửa vời — bảng `_SSH_ONLY` trong `handlers.py`.
+
+**Khác biệt x86 ↔ ARM64 — lớp dịch vụ.** Bản ARM64 không có systemd nên có lớp trừu tượng `_svc`
+trong `menu/helpers/environment`. Bản x86 chạy systemd nên `hostvn.py` tự cấp một **shim `_svc`
+tối giản ánh xạ sang `systemctl`** (`_SVC_SHIM` / `_env_prefix()`), nhờ đó phần còn lại của code
+dùng chung được cho cả hai. Shim cũng xử lý việc unit đổi tên giữa các bản phân phối
+(`redis` ↔ `redis-server`).
+
+**Cài đặt:** `hostvn` → **Telegram Notify** → **5**. `control_bot` tự dựng venv riêng
+(`_ensure_python_bot`: `python3 -m venv`, nếu thiếu ensurepip thì `apt install python3-venv`
+rồi thử lại) và tạo unit `hostvn-telegram-bot.service` trỏ thẳng vào `venv/bin/python bot.py`.
+`bot.sh` chỉ còn là đường lui khi venv chưa sẵn sàng.
+
+> `menu/telegram_bot/venv/` **không** commit vào repo — dựng tại chỗ lúc setup.
+
+### 15.2. Các fix back-port kèm theo
+
+| # | Fix | File |
+|---|---|---|
+| 1 | Chế độ Tunnel: đổi tên miền / thêm-xoá alias / redirect nay **đồng bộ luôn bản ghi DNS**. Trước đây chỉ `add`/`delete domain` mới tạo CNAME, nên đổi tên miền xong site chết vì hostname mới không có DNS. Đổi tên: thêm CNAME mới **trước** rồi mới xoá cũ để không có khoảng trống. | `controller/domain/{change_domain,alias_domain,redirect_domain}` |
+| 2 | Bộ ngôn ngữ EN: bổ sung key thiếu `lang_permission_manager` (thiếu key này menu 6 hiện trống) + sửa 20 chỗ dịch sai/khác nghĩa so với bản VI. Hai file nay cùng số key. | `menu/lang/en`, `menu/lang/vi` |
+| 3 | PHP redis/igbinary: thử `apt` (PPA ondrej có sẵn gói đúng phiên bản) **trước**, biên dịch PECL chỉ còn là đường lui → cài nhanh hơn nhiều và hết lỗi build. | `controller/cache/script/install_php_redis.sh` |
+| 4 | `menu.tar.gz` do **GitHub Actions sinh lúc build Pages**, không commit nữa. Trước đây phải đóng gói tay; quên một lần là người dùng bấm Update nhận bản menu cũ. Kèm fallback trong `add_menu()`: cài từ repo clone mà không có tarball thì tự đóng gói từ `menu/`. | `.github/workflows/static.yml`, `hostvn` |
+
+### 15.3. Cố ý KHÔNG back-port
+
+Những thứ này chỉ đúng trong môi trường Android/chroot, mang sang x86 sẽ có hại:
+
+- Lớp `_svc` thay systemd, autostart qua `/etc/rc.local`, memcached qua unix socket.
+- `hostvn-noop` cho fail2ban (Android không có iptables) — x86 dùng `iptables-multiport` bình thường.
+- Allowlist RFC1918, `IPADDRESS` sinh động (giải quyết việc IP LAN của điện thoại hay đổi).
+- Tinh chỉnh eatmydata / `nobarrier` / `vm.dirty_*` / MariaDB trên tmpfs / giới hạn OOM.
+- Thương hiệu và số hiệu phiên bản riêng của nhánh ARM64 (`HostVN Scripts ARM64`, 1.1.1).
+
+### 15.4. Kết quả test thật trên máy x86 (Ubuntu 24.04.4, Proxmox LXC, chế độ tunnel)
+
+| Hạng mục | Kết quả |
+|---|---|
+| Tầng nghiệp vụ `hostvn.py` (21 phép thử) | **21/21** — trạng thái dịch vụ, liệt kê domain/DB/WP, firewall, SSL, tài khoản, phân quyền |
+| Render 23 màn hình nhóm + menu chính | **26/26** — độ dài ≤ 4096, thẻ HTML hợp lệ, `callback_data` ≤ 64 byte, feature-gating lọc đúng 2/16 nút |
+| Dựng venv qua `_ensure_python_bot` | Đạt — chạy đúng nhánh fallback `apt install python3-venv`, cài `python-telegram-bot 21.11.1` |
+| Hook DNS tunnel (`add-dns` → `del-dns`) | Đạt — tạo/xoá CNAME thật qua Cloudflare API, kiểm chứng bằng truy vấn ngược, đã dọn bản ghi test |
+| Cú pháp toàn bộ file shell đã sửa | `bash -n` sạch; `py_compile` sạch |
+
+**Lỗi test này bắt được:** shim `_svc is-active` in trạng thái **hai lần** (`inactive\ninactive`)
+với unit không active — vì `systemctl is-active` đã in ra rồi mà nhánh `||` còn in thêm. Lỗi lộ
+thẳng ra màn hình 🔧 Dịch vụ và 🖥️ Hệ thống. Đã sửa: bắt output vào biến, chỉ tự đặt `inactive`
+khi `systemctl` không in gì (unit không tồn tại).
+
+**Chưa test:** phiên Telegram thật đầu-cuối (bấm nút trên điện thoại) — cần bot token hợp lệ.
+Toàn bộ tầng dưới đã kiểm bằng test ở trên; phần vận chuyển Telegram dùng chung mã với nhánh
+ARM64 và đã chạy thực tế ở đó.

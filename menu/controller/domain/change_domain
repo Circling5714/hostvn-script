@@ -88,6 +88,13 @@ _run(){
 
     if nginx -t; then
         _restart_service
+        # Che do Cloudflare Tunnel: chuyen ban ghi DNS tu domain cu sang domain moi.
+        # Them domain moi TRUOC roi moi xoa domain cu de khong co khoang trong.
+        if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+            bash /var/hostvn/menu/tunnel/cf_tunnel.sh add-dns "${newDomain}" >/dev/null 2>&1
+            bash /var/hostvn/menu/tunnel/cf_tunnel.sh del-dns "${domain}" >/dev/null 2>&1
+            printf "%s\n" "${GREEN}Da cap nhat DNS Cloudflare Tunnel: ${domain} -> ${newDomain}.${NC}"
+        fi
         clear
         printf "%s\n" "${GREEN}Doi domain thanh cong.${NC}"
     else
