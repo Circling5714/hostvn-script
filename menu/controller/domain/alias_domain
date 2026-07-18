@@ -87,6 +87,9 @@ _destroy_alias_domain() {
 
         if nginx -t; then
             systemctl reload nginx
+            if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+                bash /var/hostvn/menu/tunnel/cf_tunnel.sh del-dns "${alias_domain}" >/dev/null 2>&1
+            fi
             clear
             printf "%s\n" "${GREEN}Xoa Parked/Alias thanh cong.${NC}"
         else
@@ -202,6 +205,10 @@ include ${ALIAS_DIR}/${alias_domain}.conf;
 END
         if nginx -t; then
             systemctl reload nginx
+            # Che do Cloudflare Tunnel: hostname nay can ban ghi DNS rieng
+            if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+                bash /var/hostvn/menu/tunnel/cf_tunnel.sh add-dns "${alias_domain}" >/dev/null 2>&1
+            fi
             clear
             printf "%s\n" "${GREEN}Tao Alias Domain thanh cong.${NC}"
         else

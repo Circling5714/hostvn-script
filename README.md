@@ -40,7 +40,19 @@ This is a shell script used to install LEMP Stack (Nginx - MariaDB - PHP-FPM) on
 - ❌ **Bỏ ngx_pagespeed** — Google đã ngừng phát triển, không có binary PSOL và không compile được trên toolchain mới.
 - ❌ Bỏ Nextcloud auto-install (phụ thuộc bundle từ server gốc đã ngừng hoạt động).
 
-### 1.3. Optimization & Security & WordPress & Backup
+### 1.3. Bot Telegram điều khiển bằng menu
+
+Toàn bộ 15 nhóm menu của shell `hostvn` được mirror thành **nút bấm trên Telegram** — quản trị server không cần mở SSH.
+
+- Menu chính ghim cố định ở đáy khung chat (16 nhóm: Domain, LEMP, WordPress, SSL, Cache, Backup, Firewall, Dịch vụ, Hệ thống, VPS, Công cụ, Phân quyền, Thông tin Acc, Cronjob, Update, Ngôn ngữ).
+- **Thanh tiến trình động** cho mọi tác vụ chạy lâu.
+- **Phân quyền theo từng chat**: admin thấy đủ, chat khác chỉ thấy nhóm được cấp.
+- Thao tác cần nhập nhiều bước (nén ảnh, deploy, đổi port admin…) bot chỉ đường sang SSH thay vì làm nửa vời.
+
+Cài: `hostvn` → **Telegram Notify** → **5**. Script tự dựng venv Python riêng và tạo service `hostvn-telegram-bot`.
+Chi tiết kỹ thuật: [PROJECT.md §15](PROJECT.md).
+
+### 1.4. Optimization & Security & WordPress & Backup
 
 Giữ nguyên đầy đủ tính năng bản gốc: tối ưu cấu hình theo tài nguyên VPS, chạy 2 phiên bản PHP song song, mỗi website một user riêng, Fail2ban, đổi port SSH, quản trị WordPress (cache plugin, backup GG Drive/local qua Rclone, đổi domain, update plugin...), firewall, Telegram notify... Xem menu `hostvn` sau khi cài.
 

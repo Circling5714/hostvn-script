@@ -148,6 +148,20 @@ EOF
 }
 
 mkdir -p "${DIR}"
+# Uu tien cai bang apt (PPA ondrej co san goi dung phien ban voi PECL o tren).
+# Bien dich chi la duong lui khi apt that bai.
+_apt_php_ext() {
+    local ver="$1"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        "php${ver}-igbinary" "php${ver}-redis" >/dev/null 2>&1
+    php"${ver}" -m 2>/dev/null | grep -q redis
+}
+
+_apt_php_ext "${PHP1_VERSION}"
+if [ "${PHP2_RELEASE}" == "yes" ] && [ -n "${PHP2_VERSION}" ]; then
+    _apt_php_ext "${PHP2_VERSION}"
+fi
+
 check_ig_binary_php1=$(php"${PHP1_VERSION}" -m | grep igbinary)
 check_redis_php1=$(php"${PHP1_VERSION}" -m | grep redis)
 

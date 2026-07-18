@@ -1,3 +1,6 @@
 /.idea
 ._.DS_Store
 ..DS_Store
+
+# Goi menu do GitHub Actions sinh luc build Pages, khong commit
+menu.tar.gz

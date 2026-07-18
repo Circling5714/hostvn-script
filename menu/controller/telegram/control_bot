@@ -14,7 +14,8 @@ source /var/hostvn/menu/validate/rule
 source /var/hostvn/menu/helpers/function
 
 CONF="/var/hostvn/.telegram_bot.conf"
-BOT_SCRIPT="/var/hostvn/menu/telegram_bot/bot.sh"
+BOT_DIR="/var/hostvn/menu/telegram_bot"
+BOT_SCRIPT="${BOT_DIR}/bot.sh"
 SERVICE="/etc/systemd/system/hostvn-telegram-bot.service"
 SERVICE_NAME="hostvn-telegram-bot"
 
@@ -81,6 +82,27 @@ _detect_chat_id() {
     fi
 }
 
+_ensure_python_bot() {
+    # Backend chinh cua bot la Python (python-telegram-bot) trong venv rieng.
+    if [ -x "${BOT_DIR}/venv/bin/python" ] && "${BOT_DIR}/venv/bin/python" -c 'import telegram' 2>/dev/null; then
+        return 0
+    fi
+    printf "%s\n" "${GREEN}Dang cai moi truong Python cho bot (python-telegram-bot), co the mat vai phut...${NC}"
+    command -v python3 >/dev/null 2>&1 || { apt-get update -y >/dev/null 2>&1; apt-get install -y python3 >/dev/null 2>&1; }
+    python3 -m venv "${BOT_DIR}/venv" 2>/dev/null || {
+        apt-get update -y >/dev/null 2>&1
+        apt-get install -y python3-venv python3-pip >/dev/null 2>&1
+        python3 -m venv "${BOT_DIR}/venv" 2>/dev/null
+    }
+    "${BOT_DIR}/venv/bin/python" -m pip install --upgrade pip >/dev/null 2>&1
+    "${BOT_DIR}/venv/bin/python" -m pip install 'python-telegram-bot>=20,<22' >/dev/null 2>&1
+    if "${BOT_DIR}/venv/bin/python" -c 'import telegram' 2>/dev/null; then
+        printf "%s\n" "${GREEN}Da cai xong python-telegram-bot.${NC}"
+    else
+        printf "%s\n" "${RED}Chua cai duoc python-telegram-bot. Bot se tam chay ban bash (bot.sh).${NC}"
+    fi
+}
+
 _setup() {
     # Yeu cau curl + jq
     if ! command -v jq >/dev/null 2>&1; then
@@ -112,6 +134,18 @@ BOT_MODE="${BOT_MODE}"
 EOF
     chmod 600 "${CONF}"
 
+    # Cai moi truong Python cho bot (neu chua co) truoc khi tao service
+    _ensure_python_bot
+
+    # Backend chinh la Python; chi quay ve bot.sh khi venv chua san sang
+    if [ -x "${BOT_DIR}/venv/bin/python" ] && [ -f "${BOT_DIR}/bot.py" ]; then
+        EXEC_START="${BOT_DIR}/venv/bin/python ${BOT_DIR}/bot.py"
+        WORK_DIR="${BOT_DIR}"
+    else
+        EXEC_START="/bin/bash ${BOT_SCRIPT}"
+        WORK_DIR="/var/hostvn"
+    fi
+
     # Tao systemd service
     cat > "${SERVICE}" <<EOF
 [Unit]
@@ -121,7 +155,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash ${BOT_SCRIPT}
+WorkingDirectory=${WORK_DIR}
+ExecStart=${EXEC_START}
 Restart=always
 RestartSec=5
 

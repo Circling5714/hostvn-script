@@ -78,6 +78,9 @@ _destroy_redirect_domain() {
 
         if nginx -t; then
             systemctl reload nginx
+            if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+                bash /var/hostvn/menu/tunnel/cf_tunnel.sh del-dns "${redirect_domain}" >/dev/null 2>&1
+            fi
             clear
             printf "%s\n" "${GREEN}Xoa Redirect domain thanh cong.${NC}"
         else
@@ -141,6 +144,10 @@ _create_redirect_vhost() {
 END
         if nginx -t; then
             systemctl reload nginx
+            # Che do Cloudflare Tunnel: hostname nay can ban ghi DNS rieng
+            if grep -q "^network_mode=tunnel" "${FILE_INFO}" 2>/dev/null; then
+                bash /var/hostvn/menu/tunnel/cf_tunnel.sh add-dns "${redirect_domain}" >/dev/null 2>&1
+            fi
             clear
             printf "%s\n" "${GREEN}Tao Redirect Domain thanh cong.${NC}"
         else
