@@ -184,10 +184,9 @@ _run() {
             printf "%s\n" "${GREEN}${PROCESSING}${NC}"
 
             rclone copy /home/backup/"${CURRENT_DATE}"/"${domain}" "${remote}":"${IPADDRESS}"/"${CURRENT_DATE}"/"${domain}" --bwlimit 30M >> /var/log/rclone.log 2>&1
-            # May chu S3 dong bo cham (vd day tiep len Telegram): upload xong
-            # roi nhung liet ke chua thay ngay. Cho va bao ro, de nguoi dung
-            # khong tuong backup that bai.
-            wait_s3_path "${remote}" "${IPADDRESS}/${CURRENT_DATE}/${domain}"
+            # Ghi so muc luc TRUOC khi xoa thu muc tam (can doc ten file trong do).
+            # Nho no ma restore van hien duoc danh sach voi remote khong liet ke duoc.
+            backup_index_add "${remote}" "${CURRENT_DATE}" "${domain}" "/home/backup/${CURRENT_DATE}/${domain}"
             rm -rf /home/backup/"${CURRENT_DATE}"/"${domain}"
             notify="${GREEN}Backup success.${NC}"
         fi

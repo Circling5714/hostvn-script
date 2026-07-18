@@ -298,66 +298,89 @@ _restart_service(){
 }
 
 # --------------------------------------------------------------------------- #
-# S3 dong bo cham (eventual consistency)
+# So muc luc backup
 #
-# Mot so may chu S3 khong luu file ngay ma day tiep len kho khac (vi du
-# telecloud day len Telegram). Upload tra ve OK ngay, nhung phai vai giay den
-# vai phut sau file moi hien ra khi liet ke. Doi file xuat hien "ngay lap tuc"
-# la sai ky vong -> phai biet remote nao thuoc loai nay va cho.
+# Vi sao can: co gateway S3 khong ho tro tham so 'prefix' cua ListObjectsV2 —
+# doc file theo duong dan chinh xac thi duoc, nhung liet ke thu muc con LUON
+# tra ve rong. Restore cua hostvn von dua vao "rclone lsf" de hien danh sach
+# ngay/domain, nen voi loai remote do se bao "khong co backup" du du lieu van
+# nam nguyen tren server.
 #
-# Luu tai /var/hostvn/.s3_remote.conf, moi dong: <ten_remote>|<so_giay_cho>
+# Cach giai: moi lan backup thi ghi lai DA LUU GI O DAU. So muc luc nay dat
+# ca o may (/var/hostvn/.backup_index.<remote>) lan tren remote o duong dan
+# CO DINH <IP>/backup_index.txt — doc duoc bang copyto ma khong can liet ke,
+# nen cai lai VPS van khoi phuc duoc.
+#
+# Moi dong: <ngay>|<domain>|<file1>,<file2>
 # --------------------------------------------------------------------------- #
-S3_REMOTE_CONF="/var/hostvn/.s3_remote.conf"
-
-# Tra ve so giay can cho cua remote (0 = dong bo ngay, khong can cho)
-s3_sync_delay() {
-    local name="$1"
-    [ -f "${S3_REMOTE_CONF}" ] || { echo 0; return; }
-    local d
-    d=$(grep -m1 "^${name}|" "${S3_REMOTE_CONF}" 2>/dev/null | cut -d'|' -f2)
-    case "${d}" in
-        ''|*[!0-9]*) echo 0 ;;
-        *) echo "${d}" ;;
-    esac
+_bk_index_file() {
+    echo "/var/hostvn/.backup_index.${1}"
 }
 
-s3_set_sync_delay() {
-    local name="$1" delay="$2"
-    touch "${S3_REMOTE_CONF}"
-    chmod 600 "${S3_REMOTE_CONF}"
-    sed -i "/^${name}|/d" "${S3_REMOTE_CONF}" 2>/dev/null
-    echo "${name}|${delay}" >> "${S3_REMOTE_CONF}"
+_bk_index_remote_path() {
+    # Dat o GOC remote, khong long trong <IP>/. Ly do: co gateway S3 khong xu ly
+    # duoc ghi de vao mot duong dan nam sau nhieu cap prefix ("destination is a
+    # file"), trong khi ghi/doc o goc thi binh thuong. Ten co kem IP nen nhieu
+    # may cung day vao mot bucket van khong dam nhau.
+    echo "${1}:hostvn_backup_index_${IPADDRESS}.txt"
 }
 
-s3_forget_remote() {
-    [ -f "${S3_REMOTE_CONF}" ] && sed -i "/^${1}|/d" "${S3_REMOTE_CONF}" 2>/dev/null
+# Ghi nhan mot ban backup vua day len remote, roi dong bo muc luc len do luon
+backup_index_add() {
+    local remote="$1" bdate="$2" bdomain="$3" bdir="$4" idx files tmp
+    [ -z "${remote}" ] && return 0
+    idx=$(_bk_index_file "${remote}")
+    files=$(cd "${bdir}" 2>/dev/null && ls -1A 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+    [ -z "${files}" ] && return 0
+
+    touch "${idx}"; chmod 600 "${idx}"
+    tmp=$(mktemp) || return 0
+    grep -v "^${bdate}|${bdomain}|" "${idx}" > "${tmp}" 2>/dev/null
+    echo "${bdate}|${bdomain}|${files}" >> "${tmp}"
+    sort -ru "${tmp}" -o "${idx}"
+    rm -f "${tmp}"
+
+    # Xoa TRUOC roi moi ghi. Co gateway S3 chi cho ghi mot lan vao mot duong
+    # dan: ghi de bao "is a file not a directory", nhung xoa xong ghi lai thi
+    # binh thuong. Voi remote thuong thi deletefile chi la thao tac thua vo hai.
+    local rpath
+    rpath=$(_bk_index_remote_path "${remote}")
+    rclone deletefile "${rpath}" >/dev/null 2>&1
+    # copyto: ghi vao DUNG duong dan, khong can liet ke thu muc
+    rclone copyto "${idx}" "${rpath}" >/dev/null 2>&1
 }
 
-# Cho file hien ra sau khi upload len remote dong bo cham.
-#
-# LUU Y: het gio ma chua thay thi KHONG phai loi. Lenh upload da tra ve OK,
-# nghia la may chu DA NHAN file; viec no day tiep len kho ngoai (Telegram...)
-# co the mat vai phut den hang chuc phut tuy dung luong. Vi vay ham nay luon
-# tra 0 — no chi de BAO TIN, khong duoc phep lam backup bi danh dau that bai.
-wait_s3_path() {
-    local remote="$1" path="$2" max
-    max=$(s3_sync_delay "${remote}")
-    [ "${max}" -le 0 ] && return 0
+# Lay muc luc tu remote ve va gop voi ban o may
+backup_index_fetch() {
+    local remote="$1" idx tmp
+    [ -z "${remote}" ] && return 0
+    idx=$(_bk_index_file "${remote}")
+    tmp="${idx}.remote"
+    rm -f "${tmp}"
+    rclone copyto "$(_bk_index_remote_path "${remote}")" "${tmp}" >/dev/null 2>&1
+    if [ -s "${tmp}" ]; then
+        touch "${idx}"
+        cat "${idx}" "${tmp}" 2>/dev/null | grep -E '^[^|]+\|[^|]+\|' | sort -ru -o "${idx}"
+        chmod 600 "${idx}"
+    fi
+    rm -f "${tmp}"
+    [ -s "${idx}" ]
+}
 
-    local waited=0 step=10
-    printf "%s\n" "Remote '${remote}' dong bo cham — dang cho file hien ra (toi da ${max}s)..."
-    while [ "${waited}" -lt "${max}" ]; do
-        if [ -n "$(rclone lsf "${remote}:${path}" 2>/dev/null)" ]; then
-            printf "%s\n" "${GREEN}Da thay du lieu tren remote sau ${waited}s.${NC}"
-            return 0
-        fi
-        sleep "${step}"
-        waited=$((waited + step))
-        printf "  ... %ss\n" "${waited}"
-    done
+backup_index_dates() {
+    cut -d'|' -f1 "$(_bk_index_file "$1")" 2>/dev/null | sort -ru
+}
 
-    printf "%s\n" "${GREEN}Da upload xong.${NC} File chua hien ra sau ${max}s — BINH THUONG voi remote nay."
-    printf "%s\n" "May chu con dang day du lieu len kho luu tru; file cang lon cang lau."
-    printf "%s\n" "Kiem tra lai sau bang: rclone ls ${remote}:${path}"
-    return 0
+backup_index_domains() {
+    grep "^${2}|" "$(_bk_index_file "$1")" 2>/dev/null | cut -d'|' -f2 | sort -u
+}
+
+backup_index_files() {
+    grep "^${2}|${3}|" "$(_bk_index_file "$1")" 2>/dev/null | cut -d'|' -f3 | tr ',' '\n' | grep -v '^$'
+}
+
+# Remote co liet ke duoc theo prefix khong (mot lan cho moi phien)
+remote_can_list() {
+    local remote="$1" base="$2"
+    [ -n "$(rclone lsf "${remote}:${base}" 2>/dev/null)" ]
 }

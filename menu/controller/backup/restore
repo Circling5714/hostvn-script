@@ -204,20 +204,40 @@ _select_drive_backup_date() {
     clear
     echo "Chon ngay ban muon khoi phuc: "
     dates=()
-    selects_date=$(rclone lsf "${remote}":"${remote_base}")
-    # Remote dong bo cham: vua backup xong ma liet ke chua thay thi KHONG phai
-    # la "khong co backup" — file con dang duoc day len kho ngoai.
-    if [ -z "${selects_date}" ] && [ "$(s3_sync_delay "${remote}")" -gt 0 ]; then
-        printf "%s\n" "${RED}Chua thay ban backup nao tren '${remote}'.${NC}"
-        printf "%s\n" "Remote nay duoc danh dau la DONG BO CHAM: neu ban vua backup xong,"
-        printf "%s\n" "hay doi vai phut roi thu lai — file dang duoc day len kho luu tru."
-        read -r -p "Nhan Enter de thu liet ke lai, hoac Ctrl+C de thoat: " _
-        selects_date=$(rclone lsf "${remote}":"${remote_base}")
+    use_index="no"
+
+    selects_date=$(rclone lsf "${remote}":"${remote_base}" 2>/dev/null)
+    if [ -n "${selects_date}" ]; then
+        for entry_date in ${selects_date}; do
+            select_date=${entry_date///}
+            dates+=("${select_date}")
+        done
+    else
+        # Remote khong liet ke duoc theo prefix (co gateway S3 chi cho doc theo
+        # duong dan chinh xac). Doc so muc luc do chinh hostvn ghi khi backup.
+        printf "%s\n" "${GREEN}Remote nay khong liet ke duoc thu muc — dang doc so muc luc backup...${NC}"
+        backup_index_fetch "${remote}" >/dev/null 2>&1
+        while IFS= read -r d; do
+            [ -n "${d}" ] && dates+=("${d}")
+        done < <(backup_index_dates "${remote}")
+
+        if [ ${#dates[@]} -eq 0 ]; then
+            printf "%s\n" "${RED}Khong doc duoc so muc luc tren remote '${remote}'.${NC}"
+            printf "%s\n" "So muc luc chi co tu cac ban backup duoc tao SAU khi cap nhat script."
+            printf "%s\n" "Ban co the nhap ngay thu cong (dinh dang dd-mm-yyyy) neu biet chinh xac."
+            read -r -p "Nhap ngay backup [Enter = thoat]: " manual_date
+            if [ -n "${manual_date}" ]; then
+                dates+=("${manual_date}")
+                use_index="manual"
+            else
+                date=""
+                return
+            fi
+        else
+            use_index="yes"
+        fi
     fi
-    for entry_date in ${selects_date}; do
-        select_date=${entry_date///}
-        dates+=("${select_date}")
-    done
+
     PS3="Nhap lua chon cua ban [0 = Thoat]: "
     select date in "${dates[@]}"; do
         date=${date}
@@ -242,12 +262,25 @@ _google_drive_action() {
         else
             clear
             echo "Chon ten mien ban muon khoi phuc: "
-            selects_domain=$(rclone lsf "${remote}":"${remote_base}"/"${date}")
             domains=()
-            for entry_domain in ${selects_domain}; do
-                select_domain=${entry_domain///}
-                domains+=("${select_domain}")
-            done
+            selects_domain=$(rclone lsf "${remote}":"${remote_base}"/"${date}" 2>/dev/null)
+            if [ -n "${selects_domain}" ]; then
+                for entry_domain in ${selects_domain}; do
+                    select_domain=${entry_domain///}
+                    domains+=("${select_domain}")
+                done
+            elif [ "${use_index}" == "yes" ]; then
+                while IFS= read -r dm; do
+                    [ -n "${dm}" ] && domains+=("${dm}")
+                done < <(backup_index_domains "${remote}" "${date}")
+            else
+                # Khong liet ke duoc va cung khong co muc luc: dua tren cac
+                # website dang co tren may de nguoi dung chon.
+                for entry_conf in "${USER_DIR}"/.*.conf; do
+                    dm=$(basename "${entry_conf}"); dm=${dm#.}; dm=${dm%.conf}
+                    [ "${dm}" != '*' ] && domains+=("${dm}")
+                done
+            fi
             PS3="Nhap lua chon cua ban [0 = Thoat]: "
             select domain in "${domains[@]}"; do
                 domain=${domain}
@@ -265,7 +298,30 @@ _google_drive_action() {
                 db_name=$(grep -w "db_name" "${USER_DIR}/.${domain}.conf" | cut -f2 -d'=')
                 clear
                 printf "%s\n" "Dang download du lieu. Vui long doi..."
-                rclone copy "${remote}:${remote_base}/${date}/${domain}" /home/backup/"${date}"/"${domain}" --bwlimit 30M
+                if [ "${use_index}" == "no" ]; then
+                    rclone copy "${remote}:${remote_base}/${date}/${domain}" /home/backup/"${date}"/"${domain}" --bwlimit 30M
+                else
+                    # Remote khong liet ke duoc -> "rclone copy" ca thu muc se ra
+                    # rong. Phai goi copyto cho TUNG file theo duong dan chinh xac.
+                    bk_files=$(backup_index_files "${remote}" "${date}" "${domain}")
+                    if [ -z "${bk_files}" ]; then
+                        # Khong co muc luc: dung ten file theo quy uoc cua script
+                        db_guess=$(grep -w "db_name" "${USER_DIR}/.${domain}.conf" 2>/dev/null | cut -f2 -d'=')
+                        bk_files="${domain}.tar.gz"
+                        [ -n "${db_guess}" ] && bk_files="${bk_files}
+${db_guess}.sql.gz"
+                    fi
+                    while IFS= read -r bf; do
+                        [ -z "${bf}" ] && continue
+                        printf "  tai %s ... " "${bf}"
+                        if rclone copyto "${remote}:${remote_base}/${date}/${domain}/${bf}" \
+                                "/home/backup/${date}/${domain}/${bf}" --bwlimit 30M >/dev/null 2>&1; then
+                            echo "xong"
+                        else
+                            echo "khong co / loi"
+                        fi
+                    done <<< "${bk_files}"
+                fi
             fi
         fi
     fi
@@ -439,6 +495,7 @@ type=""
 remote_name=""
 remote=""
 remote_base=""
+use_index="no"
 domain=""
 date=""
 
