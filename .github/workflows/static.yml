@@ -46,8 +46,13 @@ jobs:
           tar --format=gnu --sort=name \
               --owner=0 --group=0 --numeric-owner \
               -czf menu.tar.gz menu
-          echo "So file trong goi: $(tar tzf menu.tar.gz | grep -vc '/$')"
-          tar tzf menu.tar.gz | grep -q 'menu/hostvn' \
+          # Liet ke ra FILE roi moi kiem tra. Neu dua thang qua ong vao "grep -q"
+          # thi grep thoat ngay khi thay dong dau tien, tar bi dut ong (SIGPIPE)
+          # va "set -o pipefail" coi ca pipeline la that bai — buoc nay bao loi
+          # "thieu file" DU rang file co that.
+          tar tzf menu.tar.gz > /tmp/pkg_list.txt
+          echo "So file trong goi: $(grep -vc '/$' /tmp/pkg_list.txt)"
+          grep -q 'menu/hostvn' /tmp/pkg_list.txt \
             || { echo "::error::goi thieu file mong doi"; exit 1; }
 
       - name: Sanity check version file
