@@ -8,8 +8,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import urllib.error
+import urllib.request
 
 from telegram import MenuButtonCommands, Update
+from telegram.error import InvalidToken
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -105,9 +108,36 @@ async def on_error(update: object, context) -> None:
     log.exception("handler error: %s", getattr(context, "error", None))
 
 
+BAD_TOKEN_MSG = ("BOT_TOKEN bi Telegram tu choi. Kiem tra lai token trong "
+                 "/var/hostvn/.telegram_bot.conf (hostvn -> Telegram Notify -> 5).")
+
+
+def _token_rejected() -> bool:
+    """Token co bi tu choi khong (401)?
+
+    Kiem TRUOC khi dung Application: khi token sai, PTB nem InvalidToken voi
+    thong bao CO NHUNG NGUYEN BOT TOKEN, va traceback do bi in ra stderr ->
+    token roi vao journald/log file. Chan tu day thi PTB khong co co hoi do.
+
+    Chi coi 401 la loi chi tu. Moi truong hop khac (mat mang, DNS hong...)
+    deu bo qua de bot van khoi dong va tu thu lai nhu truoc.
+    """
+    try:
+        with urllib.request.urlopen(
+            f"https://api.telegram.org/bot{C.BOT_TOKEN}/getMe", timeout=15
+        ):
+            return False
+    except urllib.error.HTTPError as e:
+        return e.code == 401
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def main() -> None:
     if not C.BOT_TOKEN:
         raise SystemExit("Thiếu BOT_TOKEN trong /var/hostvn/.telegram_bot.conf")
+    if _token_rejected():
+        raise SystemExit(BAD_TOKEN_MSG)
     os.makedirs(C.STATE_DIR, exist_ok=True)
 
     app = Application.builder().token(C.BOT_TOKEN).post_init(post_init).build()
@@ -119,7 +149,11 @@ def main() -> None:
     app.add_error_handler(on_error)
 
     log.info("HOSTVN bot dang chay (long polling)...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    try:
+        app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    except InvalidToken:
+        # Luoi thu hai: token bi thu hoi GIUA CHUNG khi bot dang chay.
+        raise SystemExit(BAD_TOKEN_MSG) from None
 
 
 if __name__ == "__main__":
