@@ -385,23 +385,63 @@ remote_can_list() {
     [ -n "$(rclone lsf "${remote}:${base}" 2>/dev/null)" ]
 }
 
-# Day mot thu muc backup len remote, chiu duoc gateway "chi cho ghi mot lan".
+# Day mot thu muc backup len remote.
 #
-# "rclone copy <thu_muc>" that bai voi loai gateway do khi duong dan da ton tai
-# ("is a file not a directory"), ma xoa ca thu muc thi lai can liet ke — thu
-# cung khong duoc ho tro. Nen day theo TUNG FILE: xoa dung file do roi ghi lai.
+# TUYET DOI KHONG xoa file cu roi ghi de. Do tren gateway that: lenh xoa thanh
+# cong nhung lenh ghi ngay sau do bi tu choi ("destination is a file") -> mat
+# luon ban backup cu ma khong co gi thay the. Thay vao do: neu duong dan dich
+# da co file, ghi ca ban backup sang thu muc moi <ngay>_<gio>.
+#
+# Dat BACKUP_REMOTE_FOLDER = thu muc THUC TE da dung, de ben goi ghi so muc luc
+# cho dung cho.
 backup_upload_dir() {
-    local remote="$1" bdate="$2" bdomain="$3" bdir="$4" f sent=0 total=0
+    local remote="$1" bdate="$2" bdomain="$3" bdir="$4" f base sent=0 total=0
     [ -z "${remote}" ] && return 1
+    BACKUP_REMOTE_FOLDER="${bdate}"
+
+    # Day mot file. Thu duong dan phang truoc; hong thi thu duong dan long.
+    #
+    # Do tren gateway that: mot thu muc chua duoc NHIEU THU MUC CON nhung chi
+    # MOT file truc tiep — file thu hai vao cung thu muc luon bi tu choi. Vi
+    # vay khi phang that bai thi cho file do mot thu muc rieng mang ten no.
+    _bk_put() {
+        local src="$1" folder="$2" name="$3"
+        rclone copyto "${src}" "${remote}:${IPADDRESS}/${folder}/${bdomain}/${name}"             --bwlimit 30M >> /var/log/rclone.log 2>&1 && return 0
+        rclone copyto "${src}" "${remote}:${IPADDRESS}/${folder}/${bdomain}/${name}/${name}"             --bwlimit 30M >> /var/log/rclone.log 2>&1
+    }
+
+    _bk_push() {
+        local folder="$1" ff bb
+        sent=0; total=0
+        for ff in "${bdir}"/*; do
+            [ -f "${ff}" ] || continue
+            total=$((total + 1))
+            bb=$(basename "${ff}")
+            _bk_put "${ff}" "${folder}" "${bb}" && sent=$((sent + 1))
+        done
+        [ "${total}" -gt 0 ] && [ "${sent}" -eq "${total}" ]
+    }
+
+    # Dich da co du lieu -> ghi thang sang thu muc moi, khong ghi de.
     for f in "${bdir}"/*; do
         [ -f "${f}" ] || continue
-        total=$((total + 1))
-        rclone deletefile "${remote}:${IPADDRESS}/${bdate}/${bdomain}/$(basename "${f}")" >/dev/null 2>&1
-        if rclone copyto "${f}" "${remote}:${IPADDRESS}/${bdate}/${bdomain}/$(basename "${f}")"                 --bwlimit 30M >> /var/log/rclone.log 2>&1; then
-            sent=$((sent + 1))
+        base=$(basename "${f}")
+        if rclone cat "${remote}:${IPADDRESS}/${bdate}/${bdomain}/${base}" 2>/dev/null                 | head -c 1 | grep -q .; then
+            BACKUP_REMOTE_FOLDER="${bdate}_$(date +%H%M%S)"
+            break
         fi
     done
-    [ "${total}" -gt 0 ] && [ "${sent}" -eq "${total}" ]
+
+    _bk_push "${BACKUP_REMOTE_FOLDER}" && return 0
+
+    # Ghi that bai du dich trong: co gateway giu lai "dau vet thu muc" tu lan
+    # ghi hong truoc do, khien duong dan cu vinh vien khong ghi duoc nua. Duong
+    # dan chua tung dung thi luon nhan, nen thu mot thu muc moi tinh.
+    if [ "${BACKUP_REMOTE_FOLDER}" = "${bdate}" ]; then
+        BACKUP_REMOTE_FOLDER="${bdate}_$(date +%H%M%S)"
+        _bk_push "${BACKUP_REMOTE_FOLDER}" && return 0
+    fi
+    return 1
 }
 
 # Liet ke remote cloud da ket noi kem kieu va dich den.

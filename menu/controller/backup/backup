@@ -185,14 +185,13 @@ _run() {
 
             if ! backup_upload_dir "${remote}" "${CURRENT_DATE}" "${domain}" "/home/backup/${CURRENT_DATE}/${domain}"; then
                 clear
-                printf "%s
-" "${RED}Day len ${remote} that bai. Giu lai ban tren may de khong mat du lieu.${NC}"
+                printf "%s\n" "${RED}Day len ${remote} that bai. Giu lai ban tren may de khong mat du lieu.${NC}"
                 notify="${RED}Backup len cloud that bai (ban tren may van con).${NC}"
                 return
             fi
             # Ghi so muc luc TRUOC khi xoa thu muc tam (can doc ten file trong do).
             # Nho no ma restore van hien duoc danh sach voi remote khong liet ke duoc.
-            backup_index_add "${remote}" "${CURRENT_DATE}" "${domain}" "/home/backup/${CURRENT_DATE}/${domain}"
+            backup_index_add "${remote}" "${BACKUP_REMOTE_FOLDER:-${CURRENT_DATE}}" "${domain}" "/home/backup/${CURRENT_DATE}/${domain}"
             rm -rf /home/backup/"${CURRENT_DATE}"/"${domain}"
             notify="${GREEN}Backup success.${NC}"
         fi

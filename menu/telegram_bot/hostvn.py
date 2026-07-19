@@ -1129,21 +1129,28 @@ def _upload_backup(remote: str, date: str, domain: str, dest: str) -> tuple[bool
     qd, qdest = shlex.quote(domain), shlex.quote(dest)
     qdate = shlex.quote(date)
 
-    # Day TUNG FILE bang copyto thay vi "rclone copy" ca thu muc. Ly do: co
-    # gateway S3 chi cho ghi MOT LAN vao mot duong dan — backup lai cung domain
-    # trong cung ngay se bao "is a file not a directory". Xoa truoc roi ghi lai
-    # thi duoc, nhung xoa ca thu muc lai can liet ke (cung khong duoc ho tro),
-    # nen phai xu ly theo tung file ma minh biet ten.
+    # Day TUNG FILE bang copyto thay vi "rclone copy" ca thu muc: co gateway S3
+    # khong ho tro liet ke theo prefix nen copy ca thu muc se ra rong.
+    #
+    # TUYET DOI KHONG xoa file cu roi ghi de. Do tren gateway that: lenh xoa
+    # thanh cong nhung lenh ghi ngay sau do bi tu choi ("destination is a file")
+    # -> mat luon ban backup cu ma khong co gi thay the. Neu dich da co file thi
+    # ghi ca ban backup sang thu muc moi <ngay>_<gio>.
     files = sorted(p.name for p in Path(dest).iterdir() if p.is_file())
     if not files:
         return False, "không có file nào để đẩy lên."
+
+    def _exists(folder: str, f: str) -> bool:
+        qfolder = shlex.quote(folder)
+        n = sh(f"rclone cat {qr}:{qip}/{qfolder}/{qd}/{shlex.quote(f)} 2>/dev/null "
+               f"| head -c 1 | wc -c", 180)
+        return n.strip() not in ("", "0")
 
     def _push(folder: str) -> tuple[int, str]:
         ok_n, err = 0, ""
         qfolder = shlex.quote(folder)
         for f in files:
             qf = shlex.quote(f)
-            sh(f"rclone deletefile {qr}:{qip}/{qfolder}/{qd}/{qf} >/dev/null 2>&1", 120)
             out = sh(f"rclone copyto {qdest}/{qf} {qr}:{qip}/{qfolder}/{qd}/{qf} "
                      f"--bwlimit 30M 2>&1; echo RC=$?", 1800, merge=True)
             if "RC=0" in out:
@@ -1152,14 +1159,14 @@ def _upload_backup(remote: str, date: str, domain: str, dest: str) -> tuple[bool
                 err = "\n".join(out.strip().splitlines()[-2:])
         return ok_n, err
 
-    folder = date
+    fresh = f"{date}_{time.strftime('%H%M%S')}"
+    # Dich da co du lieu -> ghi thang sang thu muc moi, khong dung ghi de.
+    folder = fresh if any(_exists(date, f) for f in files) else date
     sent, last_err = _push(folder)
-    if sent < len(files):
-        # Co gateway chi cho ghi MOT LAN vao mot duong dan: backup lai cung
-        # domain trong cung ngay se bi tu choi, xoa truoc cung khong an thua.
-        # Ghi vao thu muc moi (<ngay>_<gio>) — duong dan moi thi luon ghi duoc.
-        # So muc luc ghi lai dung thu muc da dung nen restore van tim thay.
-        folder = f"{date}_{time.strftime('%H%M%S')}"
+    if sent < len(files) and folder == date:
+        # Van hong du dich trong: thu mot thu muc moi tinh (duong dan chua
+        # tung dung thi gateway luon nhan).
+        folder = fresh
         sent, last_err = _push(folder)
     if sent == 0:
         return False, f"đẩy lên {remote} thất bại: {last_err}"
