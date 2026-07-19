@@ -1549,6 +1549,12 @@ async def cb_bk(update, context, action, params):
         return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
                                          reply_markup=menus.back_only("m|backup"))
 
+    # "run" la nut CU con nam trong lich su chat: truoc day no chay backup thang
+    # xuong may, bo qua buoc chon noi luu. Bam lai tin nhan cu se thay bot "van
+    # chay ban cu" du ma nguon da moi. Quy ve dung buoc chon dich.
+    if action == "run":
+        action = "dst"
+
     # bk|dst|<type>|<domain> -> chon NOI LUU truoc khi chay
     if action == "dst":
         btype = params[0] if params else "full"
@@ -1604,24 +1610,6 @@ async def cb_bk(update, context, action, params):
                      (70, f"{E['db']} <b>Đang dump database</b>…"),
                      (90, "🔄 <b>Đang hoàn tất</b>…")]))
 
-    # bk|run|<type>|<domain>  -> chay backup ngay (giu cho tuong thich nut cu)
-    if action == "run":
-        btype = params[0] if params else "full"
-        domain = params[1] if len(params) > 1 else ""
-        names = {"full": "full (mã nguồn + DB)", "source": "mã nguồn", "db": "database"}
-        return await _progress_op(
-            update, True,
-            f"{E['backup']} <b>Đang backup</b> {texts.esc(domain)} — {names.get(btype, btype)}…",
-            asyncio.to_thread(hostvn.backup_site, domain, btype),
-            lambda r: ((title(E["confirm"], f"Backup {domain}",
-                              f"<code>{progress.bar(100)}</code>\n{r[1]}\n"
-                              f"Thư mục: <code>{texts.esc(r[2])}</code>") if r[0]
-                        else title(E["warn"], f"Backup {domain} thất bại", texts.esc(r[1]))),
-                       menus.back_only("m|backup")),
-            est=45.0,
-            stages=[(30, f"📁 <b>Đang nén mã nguồn</b> {texts.esc(domain)}…"),
-                    (70, f"{E['db']} <b>Đang dump database</b>…"),
-                    (90, "🔄 <b>Đang hoàn tất</b>…")])
 
     # bk|rsd|<domain>|<date> -> chon loai khoi phuc
     if action == "rsd":
