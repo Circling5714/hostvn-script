@@ -241,7 +241,13 @@ else
                 printf "${RED}%s${NC}\n" "${lang_cancel_action}"
             else
                 if [[ "${location}" == "drive" ]]; then
-                    check_drive_remote=$(grep -w "drive" "/root/.config/rclone/rclone.conf" | cut -f2 -d'=')
+                    # Truoc day kiem bang: grep -w "drive" rclone.conf
+                    # -> chi khop remote Google Drive (type = drive). May chi ket
+                    # noi S3 (type = s3 + alias) khong co chu "drive" nao trong
+                    # config nen bi coi la CHUA co ket noi: script quay ra hoi tao
+                    # Google Drive va khong bao gio chay toi buoc chon remote.
+                    # Nay hoi dung cau hoi: co ket noi cloud nao dung duoc khong.
+                    check_drive_remote=$(list_cloud_remotes)
                     if [ -z "${check_drive_remote}" ]; then
                         _prompt_create_drive_connect
 
