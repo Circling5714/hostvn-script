@@ -9,10 +9,13 @@ Doc /var/hostvn/.telegram_bot.conf (dinh dang bash KEY="value"):
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
-CONF_PATH = "/var/hostvn/.telegram_bot.conf"
+# Cho phep tro sang file config khac khi CHAY THU, de test khong bao gio
+# ghi de config that (da tung lam bot chet vi chuyen nay).
+CONF_PATH = os.environ.get("HOSTVN_TGBOT_CONF", "/var/hostvn/.telegram_bot.conf")
 
 # --------------------------------------------------------------------------- #
 # Duong dan he thong hostvn
