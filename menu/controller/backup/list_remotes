@@ -1,0 +1,35 @@
+#!/bin/bash
+
+######################################################################
+#           Auto Install & Optimize LEMP Stack on Ubuntu             #
+#                                                                    #
+#                Author: Sanvv - HOSTVN Technical                    #
+#                  Website: https://hostvn.vn                        #
+#                                                                    #
+#              Please do not remove copyright. Thank!                #
+#  Please do not copy under any circumstance for commercial reason!  #
+######################################################################
+
+source /var/hostvn/menu/validate/rule
+source /var/hostvn/menu/helpers/function
+
+clear
+printf "%s\n" "${GREEN}Cac ket noi cloud dang co:${NC}"
+echo
+
+found=0
+while IFS='|' read -r name kind target; do
+    [ -z "${name}" ] && continue
+    found=1
+    printf "  %-20s %-10s %s\n" "${name}" "${kind}" "${target}"
+done < <(list_cloud_remotes)
+
+if [ "${found}" = "0" ]; then
+    printf "%s\n" "${RED}Chua ket noi cloud nao.${NC}"
+    printf "%s\n" "Dung muc 4 (Google Drive), 6 (OneDrive) hoac 7 (S3) de ket noi."
+else
+    echo
+    printf "%s\n" "Cac ket noi nay dung duoc o Backup, Restore va Auto backup."
+fi
+echo
+read -r -p "Nhan Enter de quay lai..." _

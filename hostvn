@@ -3327,6 +3327,11 @@ add_menu() {
     dos2unix ./menu/*/*/* > /dev/null
 
     mv "${BASH_DIR}"/menu/hostvn /usr/bin/hostvn && chmod +x /usr/bin/hostvn
+    # Lenh dieu khien bot Telegram: hostvn-bot {restart|start|stop|status|log}
+    if [ -f "${BASH_DIR}/menu/telegram_bot/bot_ctl.sh" ]; then
+        chmod +x "${BASH_DIR}/menu/telegram_bot/bot_ctl.sh"
+        ln -sf "${BASH_DIR}/menu/telegram_bot/bot_ctl.sh" /usr/bin/hostvn-bot
+    fi
 
     # Tra lai venv roi khoi dong lai bot. Bat buoc phai restart: Python nap module
     # mot lan luc chay, khong doc lai file tren dia -> khong restart thi bot van

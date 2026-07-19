@@ -32,10 +32,12 @@ _run() {
         clear
         printf "%s\n" "${RED}Ban da huy hanh dong.${NC}"
     else
-        rclone config delete "${remote}"
+        # Xoa ca remote tho "<ten>-s3" va so muc luc, khong chi moi alias —
+        # neu khong thi ket noi S3 xoa xong van con remote mo coi trong config.
+        delete_cloud_remote "${remote}"
         sed -i "/${remote}/d" "${FILE_INFO}"
         clear
-        printf "%s\n" "${GREEN}Xoa remote thanh cong.${NC}"
+        printf "%s\n" "${GREEN}Da xoa ket noi '${remote}' (ke ca phan S3 di kem).${NC}"
     fi
 }
 

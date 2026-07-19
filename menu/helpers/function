@@ -384,3 +384,56 @@ remote_can_list() {
     local remote="$1" base="$2"
     [ -n "$(rclone lsf "${remote}:${base}" 2>/dev/null)" ]
 }
+
+# Day mot thu muc backup len remote, chiu duoc gateway "chi cho ghi mot lan".
+#
+# "rclone copy <thu_muc>" that bai voi loai gateway do khi duong dan da ton tai
+# ("is a file not a directory"), ma xoa ca thu muc thi lai can liet ke — thu
+# cung khong duoc ho tro. Nen day theo TUNG FILE: xoa dung file do roi ghi lai.
+backup_upload_dir() {
+    local remote="$1" bdate="$2" bdomain="$3" bdir="$4" f sent=0 total=0
+    [ -z "${remote}" ] && return 1
+    for f in "${bdir}"/*; do
+        [ -f "${f}" ] || continue
+        total=$((total + 1))
+        rclone deletefile "${remote}:${IPADDRESS}/${bdate}/${bdomain}/$(basename "${f}")" >/dev/null 2>&1
+        if rclone copyto "${f}" "${remote}:${IPADDRESS}/${bdate}/${bdomain}/$(basename "${f}")"                 --bwlimit 30M >> /var/log/rclone.log 2>&1; then
+            sent=$((sent + 1))
+        fi
+    done
+    [ "${total}" -gt 0 ] && [ "${sent}" -eq "${total}" ]
+}
+
+# Liet ke remote cloud da ket noi kem kieu va dich den.
+# An remote tho "<ten>-s3": no la phan ky thuat cua ket noi S3, nguoi dung chi
+# can biet alias "<ten>" tro vao bucket nao.
+list_cloud_remotes() {
+    local r t tgt bucket
+    mapfile -t _all < <(rclone listremotes 2>/dev/null)
+    for r in "${_all[@]}"; do
+        r=${r%:}
+        [ -z "${r}" ] && continue
+        [[ "${r}" == *-s3 ]] && continue
+        t=$(rclone config show "${r}" 2>/dev/null | grep -m1 '^type' | cut -d= -f2 | tr -d ' ')
+        tgt=$(rclone config show "${r}" 2>/dev/null | grep -m1 '^remote' | cut -d= -f2 | tr -d ' ')
+        if [ "${t}" = "alias" ] && [[ "${tgt}" == *-s3:* ]]; then
+            bucket=${tgt#*:}
+            printf '%s|S3|bucket: %s\n' "${r}" "${bucket}"
+        else
+            printf '%s|%s|%s\n' "${r}" "${t:-?}" "${tgt}"
+        fi
+    done
+}
+
+# Xoa TRIET DE mot ket noi cloud: alias + remote tho di kem + so muc luc.
+# Chi xoa alias thi remote tho "<ten>-s3" o lai mo coi trong rclone.conf.
+delete_cloud_remote() {
+    local name="$1"
+    [ -z "${name}" ] && return 1
+    rclone config delete "${name}" >/dev/null 2>&1
+    if rclone listremotes 2>/dev/null | grep -qx "${name}-s3:"; then
+        rclone config delete "${name}-s3" >/dev/null 2>&1
+    fi
+    rm -f "/var/hostvn/.backup_index.${name}"
+    ! rclone listremotes 2>/dev/null | grep -qx "${name}:"
+}

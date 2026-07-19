@@ -183,7 +183,13 @@ _run() {
             clear
             printf "%s\n" "${GREEN}${PROCESSING}${NC}"
 
-            rclone copy /home/backup/"${CURRENT_DATE}"/"${domain}" "${remote}":"${IPADDRESS}"/"${CURRENT_DATE}"/"${domain}" --bwlimit 30M >> /var/log/rclone.log 2>&1
+            if ! backup_upload_dir "${remote}" "${CURRENT_DATE}" "${domain}" "/home/backup/${CURRENT_DATE}/${domain}"; then
+                clear
+                printf "%s
+" "${RED}Day len ${remote} that bai. Giu lai ban tren may de khong mat du lieu.${NC}"
+                notify="${RED}Backup len cloud that bai (ban tren may van con).${NC}"
+                return
+            fi
             # Ghi so muc luc TRUOC khi xoa thu muc tam (can doc ten file trong do).
             # Nho no ma restore van hien duoc danh sach voi remote khong liet ke duoc.
             backup_index_add "${remote}" "${CURRENT_DATE}" "${domain}" "/home/backup/${CURRENT_DATE}/${domain}"

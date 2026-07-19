@@ -390,6 +390,10 @@ connect_s3(){
     . /var/hostvn/menu/controller/backup/connect_s3
 }
 
+list_cloud_connections(){
+    . /var/hostvn/menu/controller/backup/list_remotes
+}
+
 delete_connect_google_drive(){
     . /var/hostvn/menu/controller/backup/delete_connect_google_drive
 }

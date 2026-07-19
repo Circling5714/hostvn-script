@@ -301,12 +301,35 @@ def backup_menu() -> InlineKeyboardMarkup:
 
 
 def backup_type_menu(domain: str, back: str = "m|backup") -> InlineKeyboardMarkup:
-    """Chon loai backup -> bk|run|<type>|<domain>."""
+    """Chon loai backup -> bk|dst|<type>|<domain> (buoc sau chon noi luu)."""
     return rows_menu([
-        [(f"{C.E['confirm']} Full (mã nguồn + DB)", f"bk|run|full|{domain}")],
-        [("📁 Chỉ mã nguồn", f"bk|run|source|{domain}")],
-        [(f"{C.E['db']} Chỉ database", f"bk|run|db|{domain}")],
+        [(f"{C.E['confirm']} Full (mã nguồn + DB)", f"bk|dst|full|{domain}")],
+        [("📁 Chỉ mã nguồn", f"bk|dst|source|{domain}")],
+        [(f"{C.E['db']} Chỉ database", f"bk|dst|db|{domain}")],
     ], back=back)
+
+
+def backup_dest_menu(remotes: list[str], back: str = "m|backup") -> InlineKeyboardMarkup:
+    """Chon noi luu. Remote tham chieu theo CHI SO de callback_data khong qua 64 byte."""
+    rows = [[("💽 Lưu trên máy (Local)", "bk|dogo|local")]]
+    for i, r in enumerate(remotes):
+        rows.append([(f"☁️ {r}", f"bk|dogo|{i}")])
+    return rows_menu(rows, back=back)
+
+
+def backup_date_menu_ex(domain: str, local_dates: list[str],
+                        cloud: list[tuple[str, str, str]],
+                        back: str = "m|backup") -> InlineKeyboardMarkup:
+    """Ngay backup: ban tren may + ban tren cloud (tu so muc luc).
+
+    Cloud tham chieu theo CHI SO de callback_data khong vuot 64 byte.
+    """
+    rows = []
+    for d in local_dates:
+        rows.append([(f"💽 {d}", f"bk|rsd|{domain}|{d}")])
+    for i, (remote, date, _dom) in enumerate(cloud):
+        rows.append([(f"☁️ {date} · {remote}", f"bk|rscl|{i}")])
+    return rows_menu(rows, back=back)
 
 
 def restore_type_menu(domain: str, date: str, back: str = "m|backup") -> InlineKeyboardMarkup:
