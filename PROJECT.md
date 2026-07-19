@@ -190,7 +190,7 @@ wget https://circling5714.github.io/hostvn-script/install && bash install
 
 ## 11. Kết quả test thật trên Proxmox LXC (17/07/2026)
 
-Môi trường: Proxmox LXC 10.0.0.10, 4GB RAM / 2 cores, unprivileged. Lưu ý: template gốc là Ubuntu 24.10 lai sources noble → đã ép đồng bộ toàn bộ userland về **noble 24.04 thật** (pin 1001 + downgrade 239 gói) trước khi test. Test tự động hoá: cài trong tmux + daemon tự trả lời 5 prompt + monitor log từ xa.
+Môi trường: Proxmox LXC, 4GB RAM / 2 cores, unprivileged. Lưu ý: template gốc là Ubuntu 24.10 lai sources noble → đã ép đồng bộ toàn bộ userland về **noble 24.04 thật** (pin 1001 + downgrade 239 gói) trước khi test. Test tự động hoá: cài trong tmux + daemon tự trả lời 5 prompt + monitor log từ xa.
 
 - **Run 1**: phát hiện bug version parsing (`c9a3ce8`) — mọi phiên bản rỗng, hỏng dây chuyền.
 - **Run 2**: xác nhận fix run 1 (menu PHP hiện đúng 8.4/8.3/8.2/7.4, MariaDB 11.8.8 + PHP 8.4.23 cài OK); phát hiện lỗi brotli (`72cee80`) và 3 lỗi image tools (`ca42e23`).
