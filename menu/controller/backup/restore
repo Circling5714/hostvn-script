@@ -314,12 +314,7 @@ ${db_guess}.sql.gz"
                     while IFS= read -r bf; do
                         [ -z "${bf}" ] && continue
                         printf "  tai %s ... " "${bf}"
-                        # Thu duong dan phang truoc, roi den duong dan long
-                        # <domain>/<file>/<file>: co gateway chi chua duoc MOT
-                        # file truc tiep moi thu muc nen luc backup phai long vao.
                         if rclone copyto "${remote}:${remote_base}/${date}/${domain}/${bf}" \
-                                "/home/backup/${date}/${domain}/${bf}" --bwlimit 30M >/dev/null 2>&1 \
-                           || rclone copyto "${remote}:${remote_base}/${date}/${domain}/${bf}/${bf}" \
                                 "/home/backup/${date}/${domain}/${bf}" --bwlimit 30M >/dev/null 2>&1; then
                             echo "xong"
                         else

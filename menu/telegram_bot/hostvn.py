@@ -1129,57 +1129,42 @@ def _upload_backup(remote: str, date: str, domain: str, dest: str) -> tuple[bool
     qd, qdest = shlex.quote(domain), shlex.quote(dest)
     qdate = shlex.quote(date)
 
-    # Day TUNG FILE bang copyto thay vi "rclone copy" ca thu muc: co gateway S3
-    # khong ho tro liet ke theo prefix nen copy ca thu muc se ra rong.
+    # Dung "rclone copy" CA THU MUC, khong phai copyto tung file. Do tren
+    # gateway that (gofakes3 cua telecloud): copy ca thu muc vao duong dan moi
+    # thi nhieu file deu len; copyto tung file thi file thu hai bi tu choi.
     #
-    # TUYET DOI KHONG xoa file cu roi ghi de. Do tren gateway that: lenh xoa
-    # thanh cong nhung lenh ghi ngay sau do bi tu choi ("destination is a file")
-    # -> mat luon ban backup cu ma khong co gi thay the. Neu dich da co file thi
-    # ghi ca ban backup sang thu muc moi <ngay>_<gio>.
+    # Ghi vao duong dan DA CO du lieu cung bi tu choi, nen neu <ngay> da co thi
+    # dung <ngay>_<gio> — vua tranh loi vua giu nguyen ban backup cu.
     files = sorted(p.name for p in Path(dest).iterdir() if p.is_file())
     if not files:
         return False, "không có file nào để đẩy lên."
 
-    def _exists(folder: str, f: str) -> bool:
-        qfolder = shlex.quote(folder)
-        n = sh(f"rclone cat {qr}:{qip}/{qfolder}/{qd}/{shlex.quote(f)} 2>/dev/null "
-               f"| head -c 1 | wc -c", 180)
-        return n.strip() not in ("", "0")
+    def _remote_size(folder: str, f: str) -> str:
+        out = sh(f"rclone lsjson {qr}:{qip}/{shlex.quote(folder)}/{qd}/{shlex.quote(f)} 2>/dev/null "
+                 f"| grep -o '\"Size\":[0-9]*' | head -1 | cut -d: -f2", 120)
+        return out.strip()
 
-    def _push(folder: str) -> tuple[int, str]:
-        ok_n, err = 0, ""
-        qfolder = shlex.quote(folder)
+    def _verify(folder: str) -> bool:
+        # Khong tin ma thoat cua rclone (gateway hay bao loi du du lieu van vao):
+        # doi chieu kich thuoc tung file moi chac.
         for f in files:
-            qf = shlex.quote(f)
-            out = sh(f"rclone copyto {qdest}/{qf} {qr}:{qip}/{qfolder}/{qd}/{qf} "
-                     f"--bwlimit 30M 2>&1; echo RC=$?", 1800, merge=True)
-            if "RC=0" in out:
-                ok_n += 1
-            else:
-                err = "\n".join(out.strip().splitlines()[-2:])
-        return ok_n, err
+            if _remote_size(folder, f) != str(Path(dest, f).stat().st_size):
+                return False
+        return True
 
-    fresh = f"{date}_{time.strftime('%H%M%S')}"
-    # Dich da co du lieu -> ghi thang sang thu muc moi, khong dung ghi de.
-    folder = fresh if any(_exists(date, f) for f in files) else date
-    sent, last_err = _push(folder)
-    if sent < len(files) and folder == date:
-        # Van hong du dich trong: thu mot thu muc moi tinh (duong dan chua
-        # tung dung thi gateway luon nhan).
-        folder = fresh
-        sent, last_err = _push(folder)
-    if sent == 0:
-        return False, f"đẩy lên {remote} thất bại: {last_err}"
-    if sent < len(files):
-        return False, f"chỉ đẩy được {sent}/{len(files)} file lên {remote}: {last_err}"
+    def _push(folder: str) -> None:
+        sh(f"rclone copy {qdest} {qr}:{qip}/{shlex.quote(folder)}/{qd} --bwlimit 30M 2>&1",
+           1800, merge=True)
+
+    folder = date if all(not _remote_size(date, f) for f in files)         else f"{date}_{time.strftime('%H%M%S')}"
+    _push(folder)
+    if not _verify(folder):
+        folder = f"{date}_{time.strftime('%H%M%S')}_{os.getpid()}"
+        _push(folder)
+        if not _verify(folder):
+            return False, f"đẩy lên {remote} không đủ file (đã thử 2 lần)."
+
     qdate = shlex.quote(folder)
-
-    # Xac minh bang cach DOC lai mot file theo duong dan chinh xac — khong dung
-    # liet ke, vi co gateway S3 khong ho tro liet ke theo prefix.
-    probe = files[0]
-    n = sh(f"rclone cat {qr}:{qip}/{qdate}/{qd}/{shlex.quote(probe)} 2>/dev/null | head -c 64 | wc -c", 300)
-    if n.strip() in ("", "0"):
-        return False, f"đã đẩy lên {remote} nhưng đọc lại không thấy dữ liệu"
 
     sh(f"source /var/hostvn/menu/helpers/function 2>/dev/null; "
        f"backup_index_add {qr} {qdate} {qd} {qdest}", 300, merge=True)
