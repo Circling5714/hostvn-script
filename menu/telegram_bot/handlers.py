@@ -802,6 +802,9 @@ def _run_action(action: str, chat: int):
                         "Cần nhập link/ID file và thư mục đích."),
         "adm_pass":    (E["key"], "Đổi mật khẩu Admin Tool", "9. Admin Tool", "5",
                         "Cần nhập mật khẩu mới."),
+        # Nut nay truoc day KHONG co nhanh xu ly nao — bam vao im lang tuyet doi.
+        "php_pm":      ("🎛️", "PHP Process Manager", "4. Quan ly LEMP → PHP", "8",
+                        "Cần chọn chế độ (ondemand/dynamic/static) rồi chọn từng website."),
         "adm_port":    ("🔌", "Đổi port Admin Tool", "9. Admin Tool", "6",
                         "Đổi port sẽ ảnh hưởng link truy cập đang dùng."),
         "acc_sftp":    (E["key"], "Đổi mật khẩu SFTP", "11. Xem thong tin tai khoan", "5",
@@ -818,7 +821,8 @@ def _run_action(action: str, chat: int):
     if action in _SSH_ONLY:
         emo, lbl, menu, num, why = _SSH_ONLY[action]
         back = ("m|acc" if action.startswith("acc_") else
-                "m|cron" if action.startswith("cron_") else "m|tool")
+                "m|cron" if action.startswith("cron_") else
+                "m|php" if action.startswith("php_") else "m|tool")
         return (title(emo, lbl, f"{why}\n\nChạy qua SSH: <code>hostvn</code> → "
                       f"<b>{menu}</b> → <b>{num}</b>."), back)
     if action == "ngx_test":
@@ -1094,29 +1098,6 @@ async def cb_pick(update, context, action, params):
             asyncio.to_thread(_find), _render, est=12.0,
             stages=[(50, "☁️ <b>Đang đọc sổ mục lục trên cloud</b>…")])
 
-    if action == "rscl":      # bk|rscl|<chi_so> -> tai tu cloud ve roi chon kieu
-        if not can_write(chat):
-            return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
-                                             reply_markup=menus.back_only("m|backup"))
-        cloud = context.user_data.get("rs_cloud") or []
-        idx = int(target) if target.isdigit() else -1
-        if not (0 <= idx < len(cloud)):
-            return await q.edit_message_text(
-                f"{E['warn']} Mất ngữ cảnh, chọn lại website.", parse_mode=HTML,
-                reply_markup=menus.back_only("m|backup"))
-        remote, date, dom = cloud[idx]
-        return await _progress_op(
-            update, True,
-            f"☁️ <b>Đang tải bản backup</b> {texts.esc(date)} <b>từ</b> {texts.esc(remote)}…",
-            asyncio.to_thread(hostvn.fetch_cloud_backup, remote, date, dom),
-            lambda r: ((title("♻️", f"Khôi phục {dom}",
-                              f"{texts.esc(r[1])}\nBản ngày <b>{texts.esc(date)}</b>. "
-                              "Chọn nội dung:"),
-                        menus.restore_type_menu(dom, date)) if r[0]
-                       else (title(E["warn"], "Không tải được", texts.esc(r[1])),
-                             menus.back_only("m|backup"))),
-            est=60.0,
-            stages=[(60, "📥 <b>Đang tải file theo đường dẫn</b>…")])
     if action == "domdel":
         if not can_write(chat):
             return await q.edit_message_text(texts.NOTIFY_ONLY, parse_mode=HTML,
@@ -1611,6 +1592,30 @@ async def cb_bk(update, context, action, params):
                      (90, "🔄 <b>Đang hoàn tất</b>…")]))
 
 
+    # bk|rscl|<chi_so> -> tai ban backup tu cloud ve roi chon kieu khoi phuc.
+    # PHAI nam trong cb_bk: nut gui "bk|rscl|..." nen router dua vao day. Truoc
+    # do nhanh nay dat nham trong cb_pick -> bam nut khong co phan hoi gi ca.
+    if action == "rscl":
+        target = params[0] if params else ""
+        cloud = context.user_data.get("rs_cloud") or []
+        idx = int(target) if target.isdigit() else -1
+        if not (0 <= idx < len(cloud)):
+            return await q.edit_message_text(
+                f"{E['warn']} Mất ngữ cảnh, chọn lại website.", parse_mode=HTML,
+                reply_markup=menus.back_only("m|backup"))
+        remote, date, dom = cloud[idx]
+        return await _progress_op(
+            update, True,
+            f"☁️ <b>Đang tải bản backup</b> {texts.esc(date)} <b>từ</b> {texts.esc(remote)}…",
+            asyncio.to_thread(hostvn.fetch_cloud_backup, remote, date, dom),
+            lambda r: ((title("♻️", f"Khôi phục {dom}",
+                              f"{texts.esc(r[1])}\nBản ngày <b>{texts.esc(date)}</b>. "
+                              "Chọn nội dung:"),
+                        menus.restore_type_menu(dom, date)) if r[0]
+                       else (title(E["warn"], "Không tải được", texts.esc(r[1])),
+                             menus.back_only("m|backup"))),
+            est=60.0,
+            stages=[(60, "📥 <b>Đang tải file theo đường dẫn</b>…")])
     # bk|rsd|<domain>|<date> -> chon loai khoi phuc
     if action == "rsd":
         domain = params[0] if params else ""
