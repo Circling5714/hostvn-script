@@ -46,11 +46,21 @@ Toàn bộ 15 nhóm menu của shell `hostvn` được mirror thành **nút bấ
 
 - Menu chính ghim cố định ở đáy khung chat (16 nhóm: Domain, LEMP, WordPress, SSL, Cache, Backup, Firewall, Dịch vụ, Hệ thống, VPS, Công cụ, Phân quyền, Thông tin Acc, Cronjob, Update, Ngôn ngữ).
 - **Thanh tiến trình động** cho mọi tác vụ chạy lâu.
-- **Phân quyền theo từng chat**: admin thấy đủ, chat khác chỉ thấy nhóm được cấp.
+- **Phân quyền theo người dùng**: xét trên ID *người bấm*, không phải ID phòng chat — thêm bot vào nhóm thì thành viên khác vẫn không điều khiển được server.
+- **Sao lưu thẳng lên cloud**: chọn nơi lưu ngay trên bot (máy chủ / Google Drive / OneDrive / S3), khôi phục cũng lấy được bản trên cloud.
 - Thao tác cần nhập nhiều bước (nén ảnh, deploy, đổi port admin…) bot chỉ đường sang SSH thay vì làm nửa vời.
 
 Cài: `hostvn` → **Telegram Notify** → **5**. Script tự dựng venv Python riêng và tạo service `hostvn-telegram-bot`.
-Chi tiết kỹ thuật: [PROJECT.md §15](PROJECT.md).
+
+Điều khiển bot bằng một dòng lệnh:
+
+```bash
+hostvn-bot restart | start | stop | status | log [số_dòng]
+```
+
+> Sau khi cập nhật mã nguồn bot **phải restart** — Python nạp module một lần lúc khởi chạy, không đọc lại file trên đĩa.
+
+Chi tiết kỹ thuật: [PROJECT.md §15](PROJECT.md) và [§16](PROJECT.md).
 
 ### 1.4. Optimization & Security & WordPress & Backup
 
@@ -83,7 +93,9 @@ Link tải mặc định đặt tại biến `SCRIPT_LINK`/`HOSTVN_SCRIPT_LINK` 
 
 Script tự phát hiện môi trường container và bỏ qua tạo swap, kernel tweak, đồng thời tắt MariaDB native AIO. Yêu cầu: template Ubuntu 22.04/24.04, unprivileged OK, **bật `nesting=1`**, RAM ≥ 2GB khi cài (compile nginx). Swap cấu hình ở Proxmox → Resources.
 
-**Lưu ý cho dev:** sau khi sửa bất kỳ file nào trong `menu/`, phải đóng gói lại: `tar -czf menu.tar.gz menu` (line-ending LF).
+**Lưu ý cho dev:** `menu.tar.gz` **không commit vào repo** — GitHub Actions tự sinh từ thư mục `menu/` mỗi lần build Pages, nên gói phân phối luôn khớp mã nguồn. Cài từ repo clone mà không có tarball thì `add_menu()` tự đóng gói tại chỗ.
+
+Sau khi sửa mã nguồn bot Telegram, nhớ `hostvn-bot restart` — Python nạp module một lần lúc khởi chạy.
 
 ## 4. Software download sources
 

@@ -349,3 +349,216 @@ khi `systemctl` không in gì (unit không tồn tại).
 **Chưa test:** phiên Telegram thật đầu-cuối (bấm nút trên điện thoại) — cần bot token hợp lệ.
 Toàn bộ tầng dưới đã kiểm bằng test ở trên; phần vận chuyển Telegram dùng chung mã với nhánh
 ARM64 và đã chạy thực tế ở đó.
+
+## 16. Rà soát bảo mật, backup lên cloud và các lỗi tìm ra khi dùng thật (19/07/2026)
+
+Đợt này chủ yếu là **sửa lỗi phát hiện khi vận hành thật**, không phải thêm
+tính năng. Nhiều lỗi chỉ lộ ra khi chạy trên máy có cấu hình khác máy phát
+triển, hoặc khi gặp một máy chủ S3 không chuẩn.
+
+### 16.1. Rà soát bảo mật
+
+**Nặng — bot phân quyền theo phòng chat, không theo người bấm.** Mọi kiểm tra
+(`is_allowed` / `can_write` / `has_feature`) đều dùng `effective_chat.id`;
+`effective_user.id` chưa từng được dùng để xét quyền. Trong nhóm thì mọi thành
+viên đều bấm được nút của tin nhắn bot gửi, nên **ai ở trong nhóm cũng điều
+khiển được máy chủ với quyền root** — kể cả người được thêm vào sau. Chính
+docstring của config lại gợi ý đưa ID nhóm vào `ALLOWED_CHAT_IDS`.
+
+Đã dựng kịch bản chứng minh: người lạ trong nhóm được `can_write = True`. Nay
+thêm `is_actor_allowed()` và `_gate()` — chat phải được phép **và** người bấm
+cũng phải được phép; mọi kiểm tra phía sau dùng id người bấm.
+
+> Ai đang dùng bot trong nhóm phải thêm **ID người dùng** của mình vào
+> `ALLOWED_CHAT_IDS` (hoặc `ADMIN_IDS`) mới dùng tiếp được — cố ý chặn trước.
+
+Ba lỗi khác kèm theo:
+
+| Lỗi | Hậu quả |
+|---|---|
+| ionCube tải qua HTTP trần | Gói chứa `.so` nạp vào mọi tiến trình PHP → chèn được gói giữa đường là chạy mã tuỳ ý. `downloads3` không hỗ trợ TLS, `downloads.ioncube.com` thì có |
+| ClamAV tải bộ chữ ký qua HTTP trần (2 file) | Chèn giữa đường thì ép được antivirus bỏ qua mã độc |
+| Bot token bị ghi vào log | httpx log nguyên URL mọi request ở mức INFO, mà URL Telegram có chứa token. Đã hạ xuống WARNING, kèm chặn thông báo `InvalidToken` của PTB (nó in nguyên token vào traceback) |
+
+**Đã kiểm và loại trừ** (không phải lỗ hổng, không sửa): quyền file bí mật
+(600 root, thử đọc bằng user website → bị chặn); mật khẩu MySQL trên dòng lệnh
+(client MariaDB tự che argv, `ps` chỉ hiện `-px xxxxxxxxxx`); tấn công symlink
+`/tmp` (kernel chặn nhờ `fs.protected_symlinks=1`); tiêm lệnh qua tên miền
+(`DOMAIN_RE` chỉ cho `[a-zA-Z0-9.-]`); tiêm SQL khi tạo database (đã lọc ký
+tự); không có `eval`, không có `curl|bash`, không có bí mật trong git.
+
+### 16.2. Thương hiệu và phiên bản
+
+`HOSTVN.VN` thành `HostVN` / `HostVN Scripts`, phiên bản `1.0.0` thành
+`1.1.1`, lời chào SSH mô tả script và trỏ Document về repo này.
+
+Số phiên bản phải đổi ở **cả ba nguồn**: `hostvn` (installer), `version`
+(Pages), `update` (script cập nhật). Sót một chỗ là máy cập nhật xong vẫn hiện
+số cũ và bị báo "có bản mới" mãi.
+
+Kèm hai fix cho chính cơ chế ghi lời chào: `ssh_login_notify()` chống trùng
+bằng cách tìm chuỗi `${AUTHOR}` trong `.bashrc` — đổi thương hiệu là chốt này
+gãy, chạy lại installer sẽ cộng thêm lời chào thứ hai; và `update` không hề
+đụng `.bashrc` nên máy đã cài giữ lời chào cũ vĩnh viễn.
+
+### 16.3. CI phát hành: build Pages luôn thất bại
+
+Bước kiểm tra gói dùng `tar tzf ... | grep -q`. `grep -q` thoát ngay khi thấy
+dòng khớp, `tar` bị đứt ống (SIGPIPE), và `set -o pipefail` coi cả pipeline là
+thất bại — nên báo "thiếu file" **dù file có thật**, làm hỏng mọi lần deploy.
+
+Với gói nhỏ thì output lọt hết vào bộ đệm ống 64KB nên lỗi không xuất hiện —
+đó là lý do nó lọt qua lúc viết. Tái hiện được với danh sách 263KB.
+
+Hậu quả: GitHub Pages phục vụ bản cũ, người dùng bấm Update nhận `menu.tar.gz`
+từ trước khi có bot. Nay liệt kê ra file rồi mới kiểm tra.
+
+Kèm phát hiện: repo ARM64 để Pages ở `build_type: legacy` (xuất bản thẳng
+nhánh, bỏ qua artifact workflow) nên `menu.tar.gz` trả 404 — update hỏng hoàn
+toàn. Đã chuyển sang `workflow`.
+
+### 16.4. Cập nhật script làm chết bot
+
+`add_menu()` chạy `rm -rf menu` để thay thư mục menu, mà **venv của bot nằm ở
+`menu/telegram_bot/venv`** và không thuộc gói `menu.tar.gz`. Mỗi lần bấm "Cập
+nhật HostVN Scripts" là venv bị xoá sạch, unit systemd trỏ vào
+`venv/bin/python` không còn nên bot chết hẳn.
+
+Kèm theo: kể cả khi venv còn thì bot vẫn chạy **mã nguồn cũ** sau khi cập
+nhật, vì Python nạp module một lần lúc khởi chạy chứ không đọc lại file trên
+đĩa. Nay giữ venv qua lần cập nhật rồi khởi động lại service.
+
+### 16.5. Lệnh `hostvn-bot`
+
+```
+hostvn-bot {restart|start|stop|status|log [số_dòng]}
+```
+
+Sau khi cập nhật mã nguồn bot **bắt buộc** phải restart (lý do ở 16.4). Trước
+đây muốn làm phải lần vào `hostvn` → Telegram Notify → chọn trong menu. Lệnh
+này kiểm cú pháp trước khi restart để tránh tắt bot cũ rồi bot mới không lên
+được. Đăng ký trong `add_menu()` nên cài mới/cập nhật là có sẵn.
+
+### 16.6. Backup lên cloud từ bot + sổ mục lục
+
+**Bot chỉ backup được xuống máy.** `backup_site()` nén xong rồi để nguyên ở
+`/home/backup`, không hề gọi `rclone`; menu cũng nhảy thẳng từ "chọn loại
+backup" sang chạy luôn. Nay có bước chọn nơi lưu (Local / từng remote), và
+khôi phục cũng đọc được bản trên cloud — bắt buộc phải làm cùng lúc, vì backup
+lên cloud sẽ xoá bản local.
+
+**Sổ mục lục backup.** Gateway S3 của người dùng (telecloud, lưu qua Telegram,
+dùng `gofakes3`) **không hỗ trợ tham số `prefix` của `ListObjectsV2`**:
+
+```
+liệt kê gốc bucket           -> 19 mục      OK
+liệt kê AUDIO/ CINEMA/ ...   -> 0 mục       (thư mục có thật, đầy dữ liệu)
+đọc theo đường dẫn chính xác -> OK, nội dung đúng
+```
+
+Mà restore của hostvn dựng menu bằng `rclone lsf`, nên báo "không có backup"
+trong khi dữ liệu vẫn nằm nguyên. Cách giải: mỗi lần backup ghi lại **đã lưu
+gì ở đâu** vào sổ mục lục, đặt cả ở máy (`/var/hostvn/.backup_index.<remote>`)
+lẫn trên remote. Restore đọc sổ thay vì liệt kê, rồi tải từng file theo đường
+dẫn chính xác.
+
+Hai chi tiết chỉ đo mới biết: sổ **không đặt được** ở `<IP>/backup_index.txt`
+(ghi vào đường dẫn nhiều cấp bị "destination is a file"), phải đặt ở gốc
+remote; và gateway chỉ cho **ghi một lần** vào một đường dẫn, xoá trước rồi
+ghi lại thì được.
+
+Restore có ba mức: liệt kê được thì như cũ; không liệt kê được nhưng có sổ thì
+dựng menu từ sổ; không có sổ thì nhập ngày thủ công, tên file suy theo quy ước
+(`<domain>.tar.gz`, `<db_name>.sql.gz`).
+
+### 16.7. Chọn "Cloud" khi backup không nhận kết nối S3
+
+Một dòng gác cổng dò chữ `"drive"` trong `rclone.conf` để quyết định "đã có
+kết nối cloud chưa". Cấu hình S3 gồm `[<tên>-s3] type = s3` và
+`[<tên>] type = alias` — **không có chữ "drive" nào**, nên script kết luận
+chưa có kết nối, quay ra hỏi tạo Google Drive và không bao giờ chạy tới bước
+chọn remote. Máy chỉ dùng S3 thì vĩnh viễn không backup lên cloud được.
+
+Đây là lỗi có sẵn trong code gốc, bị che khuất vì trước đây ai cũng dùng
+Google Drive.
+
+### 16.8. Xem và xoá kết nối cloud
+
+- Shell không có chỗ nào xem danh sách kết nối, thêm mục **9. Xem cac ket noi
+  cloud** (tên · loại · bucket).
+- Mục xoá ghi nhãn "Delete connect Google Drive" nhưng dùng chung cho mọi
+  loại, đã đổi nhãn.
+- **Xoá kết nối S3 chỉ xoá alias `<tên>`, để lại remote thô `<tên>-s3` mồ côi**
+  trong `rclone.conf` — lần sau tạo lại cùng tên sẽ báo "đã tồn tại". Đã gặp
+  đúng tình trạng này trên máy test. Nay xoá cả hai phần kèm sổ mục lục, ở cả
+  shell lẫn bot.
+- Bot: danh sách hiện loại và đích, **ẩn remote thô** (chọn nhầm nó là sai
+  đường dẫn vì thiếu tên bucket).
+
+### 16.9. Đẩy backup lên gateway S3 không chuẩn
+
+Ba vòng chẩn đoán sai trước khi ra nguyên nhân thật. Ghi lại để không lặp:
+
+| Giả thuyết | Kết luận |
+|---|---|
+| "Gateway đồng bộ chậm nên chưa thấy file" | **Sai** — đo mốc 0/1/5 phút: đọc được ngay, đủ byte |
+| "Một thư mục chỉ chứa được một file" | **Sai** — DB gateway có thư mục chứa 2–3 file bình thường |
+| Nguyên nhân thật | `rclone copy` cả thư mục thì OK; `copyto` từng file thì file thứ hai bị từ chối |
+
+Tức là chính việc đổi từ `rclone copy` sang `copyto` từng file gây ra lỗi mất
+file thứ hai. Bản gốc dùng `rclone copy` và chạy đúng.
+
+Nguy hiểm hơn: một phiên bản trung gian dùng **xoá trước rồi ghi** — trên
+gateway này lệnh xoá **thành công** còn lệnh ghi vẫn hỏng, nên mất luôn bản
+backup cũ. Đã kiểm: chưa mất dữ liệu thật nào (đường dẫn đó chưa từng có
+backup), nhưng rủi ro là thật.
+
+Cách làm hiện tại:
+
+- `rclone copy` cả thư mục như bản gốc
+- Đường dẫn đích **luôn mới**: `<ngày>` đã có dữ liệu thì dùng `<ngày>_<giờ>`,
+  giữ nguyên bản cũ — không bao giờ xoá trước khi ghi
+- **Không tin mã thoát của rclone** (gateway hay báo lỗi ở bước kiểm tra đích
+  dù dữ liệu vẫn vào) nên xác minh bằng `rclone lsjson` trên đường dẫn chính xác
+- Thư mục backup rỗng thì báo thất bại. Thiếu chốt này thì hàm xác minh chạy
+  trên tập rỗng sẽ báo thành công rồi bên gọi xoá bản trên máy, mất trắng
+
+### 16.10. Hai lỗi giao diện bot chỉ lộ khi dùng thật
+
+**Nút cũ trong lịch sử chat.** Khi thêm bước chọn nơi lưu, nhánh cũ `bk|run`
+được giữ "cho tương thích". Nút nằm trong tin nhắn cũ vẫn mang `callback_data`
+cũ nên bấm vào là chạy thẳng backup xuống máy, bỏ qua bước chọn đích. Nhìn từ
+phía người dùng thì đúng là "bot chạy bản cũ", mà thực ra là nút cũ. Nay quy
+`run` về `dst` ngay đầu `cb_bk`.
+
+> Bỏ hẳn một `callback_data` cũ thì nút cũ báo "Lựa chọn không hợp lệ" — rõ
+> ràng. Giữ lại mà xử lý theo đường cũ thì **lặng lẽ chạy sai**, khó thấy hơn.
+
+**Nhánh xử lý đặt nhầm hàm.** Nút gửi `bk|rscl|<i>`, router đưa prefix `bk`
+tới `cb_bk`, nhưng nhánh `rscl` lại nằm trong `cb_pick`. `cb_bk` không khớp
+nhánh nào nên trả về `None` — bot **im lặng tuyệt đối**, không crash, không
+log. Đây là kiểu lỗi khó thấy nhất trong bộ router này.
+
+Đã viết bộ kiểm tra tự động đối chiếu **mọi** `callback_data` bot sinh ra (177
+nút) với hàm mà router chỉ đến. Nó tìm thêm một nút chết nữa: `a|php_pm`
+(PHP Process Manager) chưa từng có handler nào, đã đưa vào bảng `_SSH_ONLY`.
+
+### 16.11. Script test không được chạm vào cấu hình thật
+
+Script test render màn hình ghi token giả thẳng vào
+`/var/hostvn/.telegram_bot.conf` để `config.py` import được. Chạy lại nó trên
+máy đang chạy thật đã **đè mất token**, bot crash-loop 18 lần.
+
+Nay `config.py` đọc đường dẫn từ biến môi trường `HOSTVN_TGBOT_CONF` (mặc
+định vẫn là file cũ), nên test dùng file riêng ở `/tmp`.
+
+### 16.12. Ghi chú vận hành
+
+- **Sau khi sửa mã nguồn bot phải `hostvn-bot restart`** — Python nạp module
+  một lần lúc khởi chạy. Lỗi này đã vấp nhiều lần trong đợt.
+- **Sửa repo không có nghĩa là máy đã cập nhật.** Push và deploy là hai việc
+  độc lập; đã vấp ba lần trong đợt (quên deploy nhóm file shell, quên restart,
+  quên deploy sang ARM64).
+- Gateway telecloud dùng `gofakes3` — không hỗ trợ liệt kê theo prefix, không
+  cho ghi đè, phản hồi lỗi cả khi ghi thành công. Mọi thao tác với nó phải
+  **xác minh bằng đọc lại**, không tin mã thoát.

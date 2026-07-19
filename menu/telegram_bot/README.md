@@ -134,3 +134,71 @@ Nếu bot rơi về bản Bash, kiểm tra virtual environment:
 
 Không commit hoặc gửi cho người khác file `.telegram_bot.conf`. Khi nghi ngờ lộ
 token, thu hồi token tại BotFather, cấu hình lại bot và kiểm tra danh sách Chat ID.
+
+## Sao lưu lên cloud
+
+Khi backup, bot hỏi **nơi lưu** trước khi chạy:
+
+```
+💽 Lưu trên máy (Local)
+☁️ <tên remote>          ← mỗi kết nối rclone một nút
+```
+
+Đẩy lên cloud xong thì bản trên máy được xoá (giống shell). Nếu đẩy thất bại,
+bản trên máy **được giữ nguyên** để không mất dữ liệu.
+
+Màn hình khôi phục hiện cả hai nguồn:
+
+```
+💽 2026-07-19                        ← bản trên máy
+☁️ 2026-07-19_090725 · <remote>      ← bản trên cloud
+```
+
+### Sổ mục lục backup
+
+Một số gateway S3 (ví dụ loại lưu qua Telegram) **không hỗ trợ liệt kê theo
+prefix** — đọc file theo đường dẫn chính xác thì được, nhưng liệt kê thư mục
+luôn trả về rỗng. Với loại đó, cách dựng menu bằng `rclone lsf` sẽ báo "không
+có backup" dù dữ liệu vẫn còn.
+
+Nên mỗi lần backup, hostvn ghi lại **đã lưu gì ở đâu** vào sổ mục lục:
+
+- ở máy: `/var/hostvn/.backup_index.<remote>`
+- trên remote: `hostvn_backup_index_<IP>.txt` ở gốc remote
+
+Mỗi dòng: `<ngày>|<domain>|<file1>,<file2>`. Restore đọc sổ này rồi tải từng
+file theo đường dẫn chính xác. Nhờ sổ nằm cả trên remote nên cài lại VPS vẫn
+khôi phục được.
+
+## Điều khiển bot
+
+```bash
+hostvn-bot restart | start | stop | status | log [số_dòng]
+```
+
+`restart` kiểm cú pháp Python trước khi khởi động lại, tránh tắt bot cũ rồi
+bot mới không lên được.
+
+> **Sau khi sửa mã nguồn bot phải restart.** Python nạp module một lần lúc
+> khởi chạy, không đọc lại file trên đĩa — sửa file xong mà không restart thì
+> bot vẫn chạy mã cũ.
+
+## Phân quyền
+
+Xét theo **ID người bấm** (`effective_user.id`), không phải ID phòng chat.
+Trong nhóm thì mọi thành viên đều bấm được nút của tin nhắn bot gửi, nên nếu
+chỉ kiểm phòng chat thì ai ở trong nhóm cũng điều khiển được máy chủ bằng
+quyền root.
+
+Muốn dùng bot trong nhóm: thêm **ID người dùng** của từng người vào
+`ALLOWED_CHAT_IDS` (hoặc `ADMIN_IDS`), không chỉ ID nhóm.
+
+## Chạy thử không đụng cấu hình thật
+
+`config.py` đọc đường dẫn cấu hình từ biến môi trường `HOSTVN_TGBOT_CONF`
+(mặc định `/var/hostvn/.telegram_bot.conf`). Khi viết test, trỏ nó sang file
+tạm — đừng ghi đè file thật, làm vậy sẽ mất token và bot crash-loop.
+
+```bash
+HOSTVN_TGBOT_CONF=/tmp/test.conf venv/bin/python your_test.py
+```
